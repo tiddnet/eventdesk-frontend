@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EventDesk — Sign in</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="shell" style="max-width: 420px; padding-top: 80px;">
+  <h1>EventDesk</h1>
+  <p class="hint">Enter your email — we'll send a sign-in link.</p>
+
+  <div id="notice"></div>
+
+  <div class="card">
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="you@example.com" autocomplete="email" />
+    </div>
+    <button class="btn" id="submit-btn" style="width:100%;">Send sign-in link</button>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+  const notice = document.getElementById("notice");
+
+  function showNotice(text, kind) {
+    notice.innerHTML = `<div class="notice ${kind}">${text}</div>`;
+  }
+
+  async function requestMagicLink() {
+    const email = document.getElementById("email").value.trim();
+    if (!email) return showNotice("Enter an email address.", "error");
+
+    const btn = document.getElementById("submit-btn");
+    btn.disabled = true;
+    btn.textContent = "Sending…";
+
+    try {
+      // No eventId on this generic login page — the API tries an admin
+      // match first, and falls back silently either way (never reveals
+      // whether the email matched, per the auth route's design).
+      const res = await fetch(`${API_BASE_URL}/auth/magic-link`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+
+      if (data.devLink) {
+        // Local dev only — no email provider configured yet.
+        showNotice(
+          `Dev mode — no email sent. <a href="${data.devLink}">Click here to continue</a>.`,
+          "warn",
+        );
+      } else {
+        showNotice("Check your email for a sign-in link.", "success");
+      }
+    } catch (err) {
+      showNotice("Something went wrong. Try again.", "error");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Send sign-in link";
+    }
+  }
+
+  async function verifyFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    if (!token) return;
+
+    showNotice("Signing you in…", "warn");
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/auth/verify?token=${encodeURIComponent(token)}`,
+      );
+      if (!res.ok) throw new Error("verify failed");
+      const data = await res.json();
+
+      localStorage.setItem("eventdesk_session", data.sessionToken);
+      localStorage.setItem("eventdesk_role", data.role);
+      window.location.href = data.role === "admin" ? "admin.html" : "me.html";
+    } catch (err) {
+      showNotice("That link is invalid or expired. Request a new one below.", "error");
+    }
+  }
+
+  document.getElementById("submit-btn").addEventListener("click", requestMagicLink);
+  document.getElementById("email").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") requestMagicLink();
+  });
+
+  verifyFromUrl();
+</script>
+</body>
+</html>

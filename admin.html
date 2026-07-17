@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EventDesk — Admin</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="shell wide">
+  <h1>Admin dashboard</h1>
+  <p class="hint">
+    Event ID:
+    <input id="event-id" value="evt1" style="width: 120px; padding: 4px 8px; font-size: 12px;" />
+    <button class="btn ghost" id="load-event" style="padding: 4px 10px; font-size: 12px;">Load</button>
+  </p>
+
+  <div id="notice"></div>
+
+  <div class="card">
+    <h2>Needs sign-off</h2>
+    <p class="hint">Guest-submitted changes only — anything you enter directly applies immediately.</p>
+    <table>
+      <thead><tr><th>Attendee</th><th>Field</th><th>Requested change</th><th></th></tr></thead>
+      <tbody id="changes-body"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Hotel requests — awaiting booking</h2>
+    <table>
+      <thead><tr><th>Attendee</th><th>Requested</th><th>Note</th><th></th></tr></thead>
+      <tbody id="requests-body"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Attendee roster</h2>
+    <div class="field-row" style="margin-bottom: 12px;">
+      <div class="field"><label>First name</label><input id="new-first" /></div>
+      <div class="field"><label>Last name</label><input id="new-last" /></div>
+      <div class="field"><label>Email</label><input id="new-email" /></div>
+      <div class="field">
+        <label>Affiliation</label>
+        <select id="new-affiliation"><option value="internal">Internal</option><option value="external">External</option></select>
+      </div>
+    </div>
+    <label style="font-size: 12.5px;"><input type="checkbox" id="new-vip" /> VIP</label>
+    <button class="btn" id="add-attendee" style="margin-left: 12px;">Add attendee</button>
+    <table style="margin-top: 14px;">
+      <thead><tr><th>Name</th><th>Affiliation</th><th>Billing</th><th>Private note</th><th>Add note</th></tr></thead>
+      <tbody id="roster-body"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Sub-events</h2>
+    <div class="field-row" style="margin-bottom: 12px;">
+      <div class="field"><label>Name</label><input id="se-name" /></div>
+      <div class="field"><label>Location</label><input id="se-location" /></div>
+      <div class="field"><label>Starts</label><input id="se-starts" type="datetime-local" /></div>
+      <div class="field"><label>Ends</label><input id="se-ends" type="datetime-local" /></div>
+    </div>
+    <label style="font-size: 12.5px;"><input type="checkbox" id="se-auto-enroll" /> Auto-enroll new attendees</label>
+    <button class="btn" id="add-subevent" style="margin-left: 12px;">Create sub-event</button>
+    <table style="margin-top: 14px;">
+      <thead><tr><th>Name</th><th>When</th><th>Auto-enroll</th><th>Attendees</th><th>PDF</th><th></th></tr></thead>
+      <tbody id="subevents-body"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Hotel export</h2>
+    <p class="hint">Column headers — edit to match the hotel's template.</p>
+    <div class="field-row">
+      <div class="field"><label for="lbl-company">Company</label><input id="lbl-company" value="Company" /></div>
+      <div class="field"><label for="lbl-checkin">Check-in</label><input id="lbl-checkin" value="Check-in" /></div>
+    </div>
+    <button class="btn ghost" id="save-labels">Save labels</button>
+    <button class="btn" id="export-csv">Export CSV</button>
+  </div>
+
+  <div class="card">
+    <h2>Hotel import</h2>
+    <p class="hint">Upload the hotel's confirmation roster (Name, Check-in, Check-out, Confirmation Number).</p>
+    <input type="file" id="import-file" accept=".csv" />
+    <button class="btn" id="import-btn">Upload &amp; match</button>
+    <div id="import-results" style="margin-top: 14px;"></div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+  const session = localStorage.getItem("eventdesk_session");
+  if (!session || localStorage.getItem("eventdesk_role") !== "admin") {
+    window.location.href = "index.html";
+  }
+
+  const notice = document.getElementById("notice");
+  function showNotice(text, kind) {
+    notice.innerHTML = `<div class="notice ${kind}">${text}</div>`;
+  }
+
+  async function api(path, options = {}) {
+    const res = await fetch(`${API_BASE_URL}/admin${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session}`,
+        ...(options.headers || {}),
+      },
+    });
+    if (res.status === 401) {
+      localStorage.clear();
+      window.location.href = "index.html";
+      throw new Error("session expired");
+    }
+    return res;
+  }
+
+  function eventId() {
+    return document.getElementById("event-id").value.trim();
+  }
+
+  async function loadChanges() {
+    const res = await api(`/events/${eventId()}/changes/pending`);
+    const rows = await res.json();
+    document.getElementById("changes-body").innerHTML = rows
+      .map((r) => {
+        const newVal = JSON.parse(r.newValue);
+        const summary = Object.entries(newVal)
+          .map(([k, v]) => `${k}: ${v || "—"}`)
+          .join(", ");
+        return `
+      <tr>
+        <td>${r.firstName} ${r.lastName} ${r.isVip ? '<span class="badge vip">VIP</span>' : ""}</td>
+        <td>${r.fieldType}</td>
+        <td>${summary}</td>
+        <td>
+          <button class="btn ghost reject-change-btn" data-id="${r.id}">Reject</button>
+          <button class="btn approve-change-btn" data-id="${r.id}">Approve</button>
+        </td>
+      </tr>`;
+      })
+      .join("");
+
+    document.querySelectorAll(".approve-change-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const res = await api(`/changes/${btn.dataset.id}/approve`, { method: "POST" });
+        if (res.ok) {
+          showNotice("Approved.", "success");
+          loadChanges();
+        }
+      });
+    });
+    document.querySelectorAll(".reject-change-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const res = await api(`/changes/${btn.dataset.id}/reject`, { method: "POST" });
+        if (res.ok) {
+          showNotice("Rejected.", "success");
+          loadChanges();
+        }
+      });
+    });
+  }
+
+  async function loadRequests() {
+    const res = await api(`/events/${eventId()}/hotel-requests`);
+    const rows = await res.json();
+    document.getElementById("requests-body").innerHTML = rows
+      .map(
+        (r) => `
+      <tr>
+        <td>${r.firstName} ${r.lastName} ${r.isVip ? '<span class="badge vip">VIP</span>' : ""}</td>
+        <td>${r.requestedCheckIn} → ${r.requestedCheckOut}</td>
+        <td>${r.note ?? ""}</td>
+        <td><button class="btn ghost book-btn" data-attendee="${r.attendeeId}" data-in="${r.requestedCheckIn}" data-out="${r.requestedCheckOut}">Book room</button></td>
+      </tr>`,
+      )
+      .join("");
+
+    document.querySelectorAll(".book-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const roomNumber = prompt("Room number?") ?? "";
+        const res = await api(`/attendees/${btn.dataset.attendee}/hotel-assignment`, {
+          method: "POST",
+          body: JSON.stringify({
+            checkInDate: btn.dataset.in,
+            checkOutDate: btn.dataset.out,
+            roomNumber,
+          }),
+        });
+        if (res.ok) {
+          showNotice("Room booked.", "success");
+          loadRequests();
+          loadRoster();
+        }
+      });
+    });
+  }
+
+  async function loadRoster() {
+    const res = await api(`/events/${eventId()}/attendees`);
+    const rows = await res.json();
+    document.getElementById("roster-body").innerHTML = rows
+      .map(
+        (a) => `
+      <tr>
+        <td>${a.firstName} ${a.lastName} ${a.isVip ? '<span class="badge vip">VIP</span>' : ""}</td>
+        <td><span class="badge">${a.affiliation}</span></td>
+        <td>${a.billedToMaster ? "Master account" : (a.companyName ?? "Own company")}</td>
+        <td>${a.hasPrivateNote ? "●" : ""}</td>
+        <td><button class="btn ghost note-btn" data-attendee="${a.id}" style="padding:4px 8px; font-size:11px;">+ Note</button></td>
+      </tr>`,
+      )
+      .join("");
+
+    document.querySelectorAll(".note-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const note = prompt("Private note (never visible to the guest):");
+        if (!note) return;
+        const res = await api(`/attendees/${btn.dataset.attendee}/notes`, {
+          method: "POST",
+          body: JSON.stringify({ note }),
+        });
+        if (res.ok) {
+          showNotice("Note added.", "success");
+          loadRoster();
+        }
+      });
+    });
+  }
+
+  document.getElementById("add-attendee").addEventListener("click", async () => {
+    const res = await api(`/events/${eventId()}/attendees`, {
+      method: "POST",
+      body: JSON.stringify({
+        firstName: document.getElementById("new-first").value,
+        lastName: document.getElementById("new-last").value,
+        email: document.getElementById("new-email").value,
+        affiliation: document.getElementById("new-affiliation").value,
+        isVip: document.getElementById("new-vip").checked,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      showNotice(
+        data.devLink
+          ? `Attendee added. Dev mode — no email sent: <a href="${data.devLink}">sign-in link</a>.`
+          : "Attendee added — invite sent.",
+        "success",
+      );
+      loadRoster();
+    } else {
+      const err = await res.json();
+      showNotice(err.error ?? "Could not add attendee.", "error");
+    }
+  });
+
+  async function loadSubEvents() {
+    const res = await api(`/events/${eventId()}/sub-events`);
+    const rows = await res.json();
+    document.getElementById("subevents-body").innerHTML = rows
+      .map(
+        (se) => `
+      <tr>
+        <td>${se.name}</td>
+        <td>${new Date(se.startsAt).toLocaleString()}</td>
+        <td>${se.autoEnrollNewAttendees ? "On" : "Off"}</td>
+        <td>${se.attendeeCount}</td>
+        <td>${se.publishedPdfUrl ? "Published" : "Not published"}</td>
+        <td>
+          ${!se.autoEnrollNewAttendees ? `<button class="btn ghost enroll-all-btn" data-id="${se.id}" style="font-size:11px;">Enroll all</button>` : ""}
+          <button class="btn ghost publish-btn" data-id="${se.id}" style="font-size:11px;">Publish PDF</button>
+        </td>
+      </tr>`,
+      )
+      .join("");
+
+    document.querySelectorAll(".enroll-all-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const res = await api(`/sub-events/${btn.dataset.id}/enroll-all`, { method: "POST" });
+        if (res.ok) {
+          showNotice("Everyone enrolled.", "success");
+          loadSubEvents();
+        }
+      });
+    });
+    document.querySelectorAll(".publish-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const res = await api(`/sub-events/${btn.dataset.id}/publish-pdf`, { method: "POST" });
+        if (res.ok) {
+          showNotice("PDF published.", "success");
+          loadSubEvents();
+        }
+      });
+    });
+  }
+
+  document.getElementById("add-subevent").addEventListener("click", async () => {
+    const res = await api(`/events/${eventId()}/sub-events`, {
+      method: "POST",
+      body: JSON.stringify({
+        name: document.getElementById("se-name").value,
+        location: document.getElementById("se-location").value,
+        startsAt: new Date(document.getElementById("se-starts").value).toISOString(),
+        endsAt: new Date(document.getElementById("se-ends").value).toISOString(),
+        autoEnrollNewAttendees: document.getElementById("se-auto-enroll").checked,
+      }),
+    });
+    if (res.ok) {
+      showNotice("Sub-event created.", "success");
+      loadSubEvents();
+    }
+  });
+
+  document.getElementById("save-labels").addEventListener("click", async () => {
+    const res = await api(`/events/${eventId()}/hotel-export-labels`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        company: document.getElementById("lbl-company").value,
+        checkIn: document.getElementById("lbl-checkin").value,
+      }),
+    });
+    if (res.ok) showNotice("Column labels saved.", "success");
+  });
+
+  document.getElementById("export-csv").addEventListener("click", async () => {
+    // A plain <a href> or window.open navigation can't carry an
+    // Authorization header, and the export route requires one (it's
+    // admin-only, per ADR 0002) — so fetch the CSV as a blob and trigger
+    // the download manually instead of navigating directly to the URL.
+    const res = await api(`/events/${eventId()}/hotel-export.csv`);
+    if (!res.ok) return showNotice("Export failed.", "error");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `hotel_export_${eventId()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById("import-btn").addEventListener("click", async () => {
+    const fileInput = document.getElementById("import-file");
+    const file = fileInput.files[0];
+    if (!file) return showNotice("Choose a CSV file first.", "error");
+
+    const text = await file.text();
+    const res = await api(
+      `/events/${eventId()}/hotel-import?filename=${encodeURIComponent(file.name)}`,
+      { method: "POST", headers: { "Content-Type": "text/csv" }, body: text },
+    );
+    const data = await res.json();
+
+    document.getElementById("import-results").innerHTML = `
+      <table>
+        <thead><tr><th>Hotel's name</th><th>Confidence</th><th>Confirmation #</th><th></th></tr></thead>
+        <tbody>
+          ${data.rows
+            .map(
+              (r) => `
+            <tr>
+              <td>${r.rawName}</td>
+              <td>${r.matchConfidence}</td>
+              <td>${r.rawConfirmation}</td>
+              <td>${
+                r.matchedAttendeeId
+                  ? `<button class="btn ghost resolve-btn" data-row="${r.rowId}" data-attendee="${r.matchedAttendeeId}" data-conf="${r.rawConfirmation}">Confirm match</button>`
+                  : "needs manual match"
+              }</td>
+            </tr>`,
+            )
+            .join("")}
+        </tbody>
+      </table>
+      <p class="hint">Batch: ${data.batchId}</p>
+    `;
+
+    document.querySelectorAll(".resolve-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const res = await api(`/events/${eventId()}/hotel-import/${data.batchId}/resolve`, {
+          method: "POST",
+          body: JSON.stringify([
+            {
+              rowId: btn.dataset.row,
+              attendeeId: btn.dataset.attendee,
+              confirmationNumber: btn.dataset.conf,
+            },
+          ]),
+        });
+        if (res.ok) {
+          showNotice("Confirmation number applied.", "success");
+          btn.disabled = true;
+          btn.textContent = "Applied";
+        }
+      });
+    });
+  });
+
+  function loadAll() {
+    loadChanges();
+    loadRequests();
+    loadRoster();
+    loadSubEvents();
+  }
+
+  document.getElementById("load-event").addEventListener("click", loadAll);
+
+  loadAll();
+</script>
+</body>
+</html>
