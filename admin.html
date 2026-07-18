@@ -17,6 +17,11 @@
     <button class="btn ghost" id="new-event-toggle" style="padding: 4px 10px; font-size: 12px;">+ New event</button>
   </p>
 
+  <div class="card" id="zero-events-notice" style="display:none;">
+    <h2>Create your first event to get started</h2>
+    <p class="hint">Everything below — roster, hotel export, sub-events — is scoped to an event. Click "+ New event" above to create one.</p>
+  </div>
+
   <div class="card" id="new-event-card" style="display:none;">
     <h2>Create event</h2>
     <div class="field-row">
@@ -255,6 +260,7 @@
       const data = await res.json();
       showNotice(`Event "${escapeHtml(name)}" created.`, "success");
       document.getElementById("new-event-card").style.display = "none";
+      document.getElementById("zero-events-notice").style.display = "none";
       await loadEventList(data.id);
       loadAll();
     } else {
@@ -291,7 +297,9 @@
   async function loadChanges() {
     const res = await api(`/events/${eventId()}/changes/pending`);
     const rows = await res.json();
-    document.getElementById("changes-body").innerHTML = rows
+    document.getElementById("changes-body").innerHTML = rows.length === 0
+      ? `<tr><td colspan="4" class="hint">Nothing waiting for review.</td></tr>`
+      : rows
       .map((r) => {
         const newVal = JSON.parse(r.newValue);
         // ADR 0018 — this is the guest-submitted free text itself
@@ -336,7 +344,9 @@
   async function loadActivityFeed() {
     const res = await api(`/events/${eventId()}/activity-feed`);
     const rows = await res.json();
-    document.getElementById("activity-feed-body").innerHTML = rows
+    document.getElementById("activity-feed-body").innerHTML = rows.length === 0
+      ? `<tr><td colspan="5" class="hint">No activity yet.</td></tr>`
+      : rows
       .map((r) => {
         const val = JSON.parse(r.newValue);
         const summary = Object.entries(val)
@@ -358,7 +368,9 @@
   async function loadRequests() {
     const res = await api(`/events/${eventId()}/hotel-requests`);
     const rows = await res.json();
-    document.getElementById("requests-body").innerHTML = rows
+    document.getElementById("requests-body").innerHTML = rows.length === 0
+      ? `<tr><td colspan="4" class="hint">No open hotel requests.</td></tr>`
+      : rows
       .map(
         (r) => `
       <tr>
@@ -410,7 +422,9 @@
   async function loadRoster() {
     const res = await api(`/events/${eventId()}/attendees`);
     rosterCache = await res.json();
-    document.getElementById("roster-body").innerHTML = rosterCache
+    document.getElementById("roster-body").innerHTML = rosterCache.length === 0
+      ? `<tr><td colspan="7" class="hint">No attendees yet — add one above.</td></tr>`
+      : rosterCache
       .map(
         (a) => `
       <tr>
@@ -635,7 +649,9 @@
     const res = await api("/admins");
     if (!res.ok) return;
     const rows = await res.json();
-    document.getElementById("admins-body").innerHTML = rows
+    document.getElementById("admins-body").innerHTML = rows.length === 0
+      ? `<tr><td colspan="3" class="hint">No admins listed.</td></tr>`
+      : rows
       .map(
         (a) => `<tr><td>${escapeHtml(a.email)}</td><td><span class="badge">${escapeHtml(a.role)}</span></td><td><button class="btn ghost revoke-admin-btn" data-id="${escapeHtml(a.id)}" data-email="${escapeHtml(a.email)}" style="padding:4px 8px; font-size:11px; color:var(--accent);">Revoke</button></td></tr>`,
       )
@@ -758,7 +774,9 @@
   async function loadSubEvents() {
     const res = await api(`/events/${eventId()}/sub-events`);
     const rows = await res.json();
-    document.getElementById("subevents-body").innerHTML = rows
+    document.getElementById("subevents-body").innerHTML = rows.length === 0
+      ? `<tr><td colspan="6" class="hint">No sub-events yet — create one above.</td></tr>`
+      : rows
       .map(
         (se) => `
       <tr>
@@ -912,7 +930,16 @@
     });
   });
 
+  // P1 (2026-07-18 consult review, UX Finding 3) — a freshly onboarded
+  // organization (ADR 0005's whole purpose) has zero events; eventId()
+  // then returns "" from the empty <select>, and every one of these
+  // fetches was firing against a malformed URL like
+  // /admin/events//notes (empty path segment) with no guard. loadAll()
+  // now short-circuits when there's no event to scope to, and the
+  // zero-events-notice card (shown by the startup IIFE below) gives the
+  // guided first step the empty dashboard didn't have.
   function loadAll() {
+    if (!eventId()) return;
     loadRegistrationSettings();
     loadEventNotes();
     loadChanges();
@@ -926,7 +953,8 @@
     loadBranding();
     loadApprovalConfig();
     loadAdmins();
-    await loadEventList();
+    const events = await loadEventList();
+    document.getElementById("zero-events-notice").style.display = events.length === 0 ? "" : "none";
     loadAll();
   })();
 </script>
