@@ -61,7 +61,7 @@
   </div>
 
   <div class="card">
-    <h2>Attendee roster</h2>
+    <h2 id="attendee-form-heading">Attendee roster</h2>
     <div class="field-row" style="margin-bottom: 12px;">
       <div class="field"><label>First name</label><input id="new-first" /></div>
       <div class="field"><label>Last name</label><input id="new-last" /></div>
@@ -71,10 +71,17 @@
         <select id="new-affiliation"><option value="internal">Internal</option><option value="external">External</option></select>
       </div>
     </div>
+    <div class="field-row" style="margin-bottom: 12px;">
+      <div class="field"><label>Company (if not billed to master)</label><input id="new-company" /></div>
+      <div class="field">
+        <label style="font-size: 12.5px; margin-top: 18px;"><input type="checkbox" id="new-billed-master" checked /> Billed to master account</label>
+      </div>
+    </div>
     <label style="font-size: 12.5px;"><input type="checkbox" id="new-vip" /> VIP</label>
     <button class="btn" id="add-attendee" style="margin-left: 12px;">Add attendee</button>
+    <button class="btn ghost" id="cancel-edit-attendee" style="display:none;">Cancel edit</button>
     <table style="margin-top: 14px;">
-      <thead><tr><th>Name</th><th>Affiliation</th><th>Source</th><th>Billing</th><th>Private note</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Affiliation</th><th>Source</th><th>Billing</th><th>Flight</th><th>Private note</th><th></th></tr></thead>
       <tbody id="roster-body"></tbody>
     </table>
   </div>
@@ -271,10 +278,13 @@
     });
   }
 
+  let rosterCache = [];
+  let editingAttendeeId = null;
+
   async function loadRoster() {
     const res = await api(`/events/${eventId()}/attendees`);
-    const rows = await res.json();
-    document.getElementById("roster-body").innerHTML = rows
+    rosterCache = await res.json();
+    document.getElementById("roster-body").innerHTML = rosterCache
       .map(
         (a) => `
       <tr>
@@ -282,8 +292,10 @@
         <td><span class="badge">${a.affiliation}</span></td>
         <td>${a.registrationSource === "self_registered" ? '<span class="badge">self-registered</span>' : "admin-added"}</td>
         <td>${a.billedToMaster ? "Master account" : (a.companyName ?? "Own company")}</td>
+        <td><button class="btn ghost flight-btn" data-attendee="${a.id}" style="padding:4px 8px; font-size:11px;">✈ Set</button></td>
         <td>${a.hasPrivateNote ? "●" : ""}</td>
         <td>
+          <button class="btn ghost edit-btn" data-attendee="${a.id}" style="padding:4px 8px; font-size:11px;">Edit</button>
           <button class="btn ghost note-btn" data-attendee="${a.id}" style="padding:4px 8px; font-size:11px;">+ Note</button>
           <button class="btn ghost remove-btn" data-attendee="${a.id}" data-name="${a.firstName} ${a.lastName}" style="padding:4px 8px; font-size:11px; color:var(--accent);">Remove</button>
         </td>
@@ -313,10 +325,60 @@
         if (res.ok) {
           showNotice("Attendee removed.", "success");
           loadRoster();
+        } else {
+          const err = await res.json();
+          showNotice(err.error ?? "Could not remove attendee.", "error");
         }
       });
     });
+
+    document.querySelectorAll(".flight-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const arrivalFlight = prompt("Arrival flight (e.g. AA 1042, Jan 19, 3:00p):") ?? "";
+        const departureFlight = prompt("Departure flight:") ?? "";
+        const res = await api(`/attendees/${btn.dataset.attendee}/flight`, {
+          method: "POST",
+          body: JSON.stringify({ arrivalFlight, departureFlight }),
+        });
+        if (res.ok) showNotice("Flight saved — this attendee's flight is now admin-managed.", "success");
+      });
+    });
+
+    document.querySelectorAll(".edit-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const a = rosterCache.find((x) => x.id === btn.dataset.attendee);
+        if (!a) return;
+        editingAttendeeId = a.id;
+        document.getElementById("new-first").value = a.firstName;
+        document.getElementById("new-last").value = a.lastName;
+        document.getElementById("new-email").value = a.email;
+        document.getElementById("new-affiliation").value = a.affiliation;
+        document.getElementById("new-vip").checked = a.isVip;
+        document.getElementById("new-billed-master").checked = a.billedToMaster;
+        document.getElementById("new-company").value = a.companyName ?? "";
+        document.getElementById("attendee-form-heading").textContent = `Editing ${a.firstName} ${a.lastName}`;
+        document.getElementById("add-attendee").textContent = "Save changes";
+        document.getElementById("cancel-edit-attendee").style.display = "";
+        window.scrollTo({ top: document.getElementById("attendee-form-heading").offsetTop - 20, behavior: "smooth" });
+      });
+    });
   }
+
+  function resetAttendeeForm() {
+    editingAttendeeId = null;
+    document.getElementById("new-first").value = "";
+    document.getElementById("new-last").value = "";
+    document.getElementById("new-email").value = "";
+    document.getElementById("new-affiliation").value = "internal";
+    document.getElementById("new-vip").checked = false;
+    document.getElementById("new-billed-master").checked = true;
+    document.getElementById("new-company").value = "";
+    document.getElementById("attendee-form-heading").textContent = "Attendee roster";
+    document.getElementById("add-attendee").textContent = "Add attendee";
+    document.getElementById("cancel-edit-attendee").style.display = "none";
+  }
+
+  document.getElementById("cancel-edit-attendee").addEventListener("click", resetAttendeeForm);
 
   async function loadRegistrationSettings() {
     // Public endpoint (ADR 0004) — deliberately not routed through api(),
@@ -346,15 +408,35 @@
   });
 
   document.getElementById("add-attendee").addEventListener("click", async () => {
+    const fields = {
+      firstName: document.getElementById("new-first").value,
+      lastName: document.getElementById("new-last").value,
+      email: document.getElementById("new-email").value,
+      affiliation: document.getElementById("new-affiliation").value,
+      isVip: document.getElementById("new-vip").checked,
+      billedToMaster: document.getElementById("new-billed-master").checked,
+      companyName: document.getElementById("new-company").value,
+    };
+
+    if (editingAttendeeId) {
+      const res = await api(`/attendees/${editingAttendeeId}`, {
+        method: "PATCH",
+        body: JSON.stringify(fields),
+      });
+      if (res.ok) {
+        showNotice("Attendee updated.", "success");
+        resetAttendeeForm();
+        loadRoster();
+      } else {
+        const err = await res.json();
+        showNotice(err.error ?? "Could not update attendee.", "error");
+      }
+      return;
+    }
+
     const res = await api(`/events/${eventId()}/attendees`, {
       method: "POST",
-      body: JSON.stringify({
-        firstName: document.getElementById("new-first").value,
-        lastName: document.getElementById("new-last").value,
-        email: document.getElementById("new-email").value,
-        affiliation: document.getElementById("new-affiliation").value,
-        isVip: document.getElementById("new-vip").checked,
-      }),
+      body: JSON.stringify(fields),
     });
     if (res.ok) {
       const data = await res.json();
@@ -364,6 +446,7 @@
           : "Attendee added — invite sent.",
         "success",
       );
+      resetAttendeeForm();
       loadRoster();
     } else {
       const err = await res.json();
