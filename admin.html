@@ -610,8 +610,27 @@
     if (!res.ok) return;
     const rows = await res.json();
     document.getElementById("admins-body").innerHTML = rows
-      .map((a) => `<tr><td>${a.email}</td><td><span class="badge">${a.role}</span></td><td></td></tr>`)
+      .map(
+        (a) => `<tr><td>${a.email}</td><td><span class="badge">${a.role}</span></td><td><button class="btn ghost revoke-admin-btn" data-id="${a.id}" data-email="${a.email}" style="padding:4px 8px; font-size:11px; color:var(--accent);">Revoke</button></td></tr>`,
+      )
       .join("");
+
+    // ADR 0017 — no "who am I" row match client-side; the server's
+    // self-revoke and last-admin guards produce a clear error on the
+    // click itself rather than being pre-emptively hidden.
+    document.querySelectorAll(".revoke-admin-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!confirm(`Revoke ${btn.dataset.email}'s admin access? This can't be undone.`)) return;
+        const res = await api(`/admins/${btn.dataset.id}`, { method: "DELETE" });
+        if (res.ok) {
+          showNotice("Admin access revoked.", "success");
+          loadAdmins();
+        } else {
+          const err = await res.json();
+          showNotice(err.error ?? "Could not revoke admin.", "error");
+        }
+      });
+    });
   }
 
   document.getElementById("invite-admin-btn").addEventListener("click", async () => {
