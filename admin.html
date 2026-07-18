@@ -46,6 +46,33 @@
   </div>
 
   <div class="card">
+    <h2>Approval routing</h2>
+    <p class="hint">Organization-wide. When on, a guest's change waits in "Needs sign-off" instead of applying immediately.</p>
+    <label style="font-size: 12.5px; display:block; margin-bottom: 6px;">
+      <input type="checkbox" id="approval-dietary" /> Dietary changes require approval
+    </label>
+    <label style="font-size: 12.5px; display:block; margin-bottom: 10px;">
+      <input type="checkbox" id="approval-flight" /> Flight changes require approval
+    </label>
+  </div>
+
+  <div class="card">
+    <h2>Admins</h2>
+    <table style="margin-bottom: 14px;">
+      <thead><tr><th>Email</th><th>Role</th><th></th></tr></thead>
+      <tbody id="admins-body"></tbody>
+    </table>
+    <div class="field-row">
+      <div class="field"><label for="invite-email">Email</label><input id="invite-email" type="email" /></div>
+      <div class="field">
+        <label for="invite-role">Role</label>
+        <select id="invite-role"><option value="admin">Admin</option><option value="editor">Editor</option></select>
+      </div>
+    </div>
+    <button class="btn ghost" id="invite-admin-btn">Invite</button>
+  </div>
+
+  <div class="card">
     <h2>Registration</h2>
     <label style="font-size: 12.5px;">
       <input type="checkbox" id="allow-self-registration" /> Allow public self-registration for this event
@@ -58,11 +85,30 @@
   </div>
 
   <div class="card">
+    <h2>Event notes</h2>
+    <p class="hint">Internal only — general notes about this event, not any one attendee.</p>
+    <div id="event-notes-list" style="margin-bottom: 10px;"></div>
+    <div class="field-row">
+      <div class="field" style="grid-column: 1 / -1;"><input id="new-event-note" placeholder="e.g. Hotel contact is Jane, contract signed 3/1" /></div>
+    </div>
+    <button class="btn ghost" id="add-event-note">Add note</button>
+  </div>
+
+  <div class="card">
     <h2>Needs sign-off</h2>
     <p class="hint">Guest-submitted changes only — anything you enter directly applies immediately.</p>
     <table>
       <thead><tr><th>Attendee</th><th>Field</th><th>Requested change</th><th></th></tr></thead>
       <tbody id="changes-body"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Recent activity</h2>
+    <p class="hint">Changes that already took effect — self-applied by a guest, admin-entered, or approved after review.</p>
+    <table>
+      <thead><tr><th>Attendee</th><th>Field</th><th>Change</th><th>By</th><th>When</th></tr></thead>
+      <tbody id="activity-feed-body"></tbody>
     </table>
   </div>
 
@@ -215,6 +261,31 @@
     }
   });
 
+  async function loadEventNotes() {
+    const res = await api(`/events/${eventId()}/notes`);
+    const notes = await res.json();
+    document.getElementById("event-notes-list").innerHTML = notes.length
+      ? notes
+          .map(
+            (n) => `<p class="hint" style="margin:0 0 6px;"><strong style="color:var(--ink);">${new Date(n.createdAt).toLocaleDateString()}</strong> — ${n.note} <span style="color:var(--ink-faint);">(${n.createdByEmail})</span></p>`,
+          )
+          .join("")
+      : `<p class="hint" style="margin:0;">No notes yet.</p>`;
+  }
+
+  document.getElementById("add-event-note").addEventListener("click", async () => {
+    const note = document.getElementById("new-event-note").value.trim();
+    if (!note) return;
+    const res = await api(`/events/${eventId()}/notes`, {
+      method: "POST",
+      body: JSON.stringify({ note }),
+    });
+    if (res.ok) {
+      document.getElementById("new-event-note").value = "";
+      loadEventNotes();
+    }
+  });
+
   async function loadChanges() {
     const res = await api(`/events/${eventId()}/changes/pending`);
     const rows = await res.json();
@@ -257,6 +328,28 @@
     });
   }
 
+  async function loadActivityFeed() {
+    const res = await api(`/events/${eventId()}/activity-feed`);
+    const rows = await res.json();
+    document.getElementById("activity-feed-body").innerHTML = rows
+      .map((r) => {
+        const val = JSON.parse(r.newValue);
+        const summary = Object.entries(val)
+          .map(([k, v]) => `${k}: ${v || "—"}`)
+          .join(", ");
+        const byLabel = r.changedByRole === "admin" ? "Admin" : r.status === "approved" ? "Guest (approved)" : "Guest";
+        return `
+      <tr>
+        <td>${r.firstName} ${r.lastName} ${r.isVip ? '<span class="badge vip">VIP</span>' : ""}</td>
+        <td>${r.fieldType}</td>
+        <td>${summary}</td>
+        <td>${byLabel}</td>
+        <td>${new Date(r.createdAt).toLocaleString()}</td>
+      </tr>`;
+      })
+      .join("");
+  }
+
   async function loadRequests() {
     const res = await api(`/events/${eventId()}/hotel-requests`);
     const rows = await res.json();
@@ -267,7 +360,10 @@
         <td>${r.firstName} ${r.lastName} ${r.isVip ? '<span class="badge vip">VIP</span>' : ""}</td>
         <td>${r.requestedCheckIn} → ${r.requestedCheckOut}</td>
         <td>${r.note ?? ""}</td>
-        <td><button class="btn ghost book-btn" data-attendee="${r.attendeeId}" data-in="${r.requestedCheckIn}" data-out="${r.requestedCheckOut}">Book room</button></td>
+        <td>
+          <button class="btn ghost book-btn" data-attendee="${r.attendeeId}" data-in="${r.requestedCheckIn}" data-out="${r.requestedCheckOut}">Book room</button>
+          <button class="btn ghost dismiss-request-btn" data-request="${r.requestId}" style="color:var(--ink-faint);">Dismiss</button>
+        </td>
       </tr>`,
       )
       .join("");
@@ -287,6 +383,17 @@
           showNotice("Room booked.", "success");
           loadRequests();
           loadRoster();
+        }
+      });
+    });
+
+    document.querySelectorAll(".dismiss-request-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("Dismiss this request without booking a room?")) return;
+        const res = await api(`/hotel-requests/${btn.dataset.request}/dismiss`, { method: "POST" });
+        if (res.ok) {
+          showNotice("Request dismissed.", "success");
+          loadRequests();
         }
       });
     });
@@ -310,25 +417,68 @@
         <td>${a.hasPrivateNote ? "●" : ""}</td>
         <td>
           <button class="btn ghost edit-btn" data-attendee="${a.id}" style="padding:4px 8px; font-size:11px;">Edit</button>
-          <button class="btn ghost note-btn" data-attendee="${a.id}" style="padding:4px 8px; font-size:11px;">+ Note</button>
+          <button class="btn ghost notes-btn" data-attendee="${a.id}" style="padding:4px 8px; font-size:11px;">Notes</button>
           <button class="btn ghost remove-btn" data-attendee="${a.id}" data-name="${a.firstName} ${a.lastName}" style="padding:4px 8px; font-size:11px; color:var(--accent);">Remove</button>
         </td>
       </tr>`,
       )
       .join("");
 
-    document.querySelectorAll(".note-btn").forEach((btn) => {
+    // P2 (2026-07-18 gap audit) — notes previously had create-only UI
+    // (a single "+ Note" prompt) even after edit/delete routes existed.
+    // Same terse prompt()-based flow already used elsewhere in this file
+    // (hotel booking, flight entry) rather than building a full modal for
+    // what's still a low-frequency action.
+    document.querySelectorAll(".notes-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
-        const note = prompt("Private note (never visible to the guest):");
-        if (!note) return;
-        const res = await api(`/attendees/${btn.dataset.attendee}/notes`, {
-          method: "POST",
-          body: JSON.stringify({ note }),
-        });
-        if (res.ok) {
+        const attendeeId = btn.dataset.attendee;
+        const res = await api(`/attendees/${attendeeId}/notes`);
+        const notes = await res.json();
+
+        if (notes.length === 0) {
+          const note = prompt("Private note (never visible to the guest):");
+          if (!note?.trim()) return;
+          await api(`/attendees/${attendeeId}/notes`, { method: "POST", body: JSON.stringify({ note: note.trim() }) });
           showNotice("Note added.", "success");
           loadRoster();
+          return;
         }
+
+        const listing = notes.map((n, i) => `${i + 1}. ${n.note}`).join("\n");
+        const choice = prompt(
+          `${listing}\n\nEnter a number to edit, "d<number>" to delete (e.g. d1), or new text to add a note:`,
+        );
+        if (!choice?.trim()) return;
+        const trimmed = choice.trim();
+
+        const deleteMatch = trimmed.match(/^d(\d+)$/i);
+        if (deleteMatch) {
+          const target = notes[parseInt(deleteMatch[1], 10) - 1];
+          if (!target) return showNotice("No such note.", "error");
+          if (!confirm("Delete this note? This can't be undone.")) return;
+          await api(`/attendees/${attendeeId}/notes/${target.id}`, { method: "DELETE" });
+          showNotice("Note deleted.", "success");
+          loadRoster();
+          return;
+        }
+
+        if (/^\d+$/.test(trimmed)) {
+          const target = notes[parseInt(trimmed, 10) - 1];
+          if (!target) return showNotice("No such note.", "error");
+          const updated = prompt("Edit note:", target.note);
+          if (updated === null || !updated.trim()) return;
+          await api(`/attendees/${attendeeId}/notes/${target.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ note: updated.trim() }),
+          });
+          showNotice("Note updated.", "success");
+          loadRoster();
+          return;
+        }
+
+        await api(`/attendees/${attendeeId}/notes`, { method: "POST", body: JSON.stringify({ note: trimmed }) });
+        showNotice("Note added.", "success");
+        loadRoster();
       });
     });
 
@@ -425,6 +575,67 @@
     }
   });
 
+  // ADR 0013 — org-level like branding, loads once at startup.
+  async function loadApprovalConfig() {
+    const res = await api("/field-approval-config");
+    if (!res.ok) return;
+    const rows = await res.json();
+    for (const row of rows) {
+      const el = document.getElementById(row.fieldType === "dietary_preference" ? "approval-dietary" : "approval-flight");
+      if (el) el.checked = row.requiresApproval;
+    }
+  }
+
+  function wireApprovalToggle(elId, fieldType) {
+    document.getElementById(elId).addEventListener("change", async (e) => {
+      const res = await api("/field-approval-config", {
+        method: "PATCH",
+        body: JSON.stringify({ fieldType, requiresApproval: e.target.checked }),
+      });
+      if (res.ok) {
+        showNotice("Approval routing saved.", "success");
+      } else {
+        const err = await res.json();
+        showNotice(err.error ?? "Could not save.", "error");
+        e.target.checked = !e.target.checked;
+      }
+    });
+  }
+  wireApprovalToggle("approval-dietary", "dietary_preference");
+  wireApprovalToggle("approval-flight", "flight_info");
+
+  // ADR 0014 — org-level like branding/approval-config, loads once at startup.
+  async function loadAdmins() {
+    const res = await api("/admins");
+    if (!res.ok) return;
+    const rows = await res.json();
+    document.getElementById("admins-body").innerHTML = rows
+      .map((a) => `<tr><td>${a.email}</td><td><span class="badge">${a.role}</span></td><td></td></tr>`)
+      .join("");
+  }
+
+  document.getElementById("invite-admin-btn").addEventListener("click", async () => {
+    const email = document.getElementById("invite-email").value.trim();
+    const role = document.getElementById("invite-role").value;
+    if (!email) return showNotice("Enter an email address.", "error");
+
+    const res = await api("/invite-admin", { method: "POST", body: JSON.stringify({ email, role }) });
+    if (res.ok) {
+      const data = await res.json();
+      showNotice(
+        data.devLink
+          ? `Invited. Dev mode — no email sent: <a href="${data.devLink}">sign-in link</a>.`
+          : "Invite sent.",
+        "success",
+      );
+      document.getElementById("invite-email").value = "";
+      loadAdmins();
+    } else {
+      const err = await res.json();
+      showNotice(err.error ?? "Could not send invite.", "error");
+    }
+  });
+
   async function loadRegistrationSettings() {
     // Public endpoint (ADR 0004) — deliberately not routed through api(),
     // which always prefixes /admin and attaches the admin session; this
@@ -514,6 +725,7 @@
         <td>
           ${!se.autoEnrollNewAttendees ? `<button class="btn ghost enroll-all-btn" data-id="${se.id}" style="font-size:11px;">Enroll all</button>` : ""}
           <button class="btn ghost publish-btn" data-id="${se.id}" style="font-size:11px;">Publish PDF</button>
+          <button class="btn ghost delete-subevent-btn" data-id="${se.id}" data-name="${se.name}" style="font-size:11px; color:var(--accent);">Delete</button>
         </td>
       </tr>`,
       )
@@ -528,12 +740,27 @@
         }
       });
     });
+    document.querySelectorAll(".delete-subevent-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!confirm(`Delete "${btn.dataset.name}"? This removes everyone's signup for it and can't be undone.`)) return;
+        const res = await api(`/sub-events/${btn.dataset.id}`, { method: "DELETE" });
+        if (res.ok) {
+          showNotice("Sub-event deleted.", "success");
+          loadSubEvents();
+        }
+      });
+    });
     document.querySelectorAll(".publish-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const res = await api(`/sub-events/${btn.dataset.id}/publish-pdf`, { method: "POST" });
         if (res.ok) {
           showNotice("PDF published.", "success");
           loadSubEvents();
+        } else {
+          // L1 (2026-07-18 gap audit) — R2 not yet enabled surfaces here as
+          // a clean 503 with an explanatory message, not a raw 500.
+          const err = await res.json();
+          showNotice(err.error ?? "Could not publish PDF.", "error");
         }
       });
     });
@@ -642,7 +869,9 @@
 
   function loadAll() {
     loadRegistrationSettings();
+    loadEventNotes();
     loadChanges();
+    loadActivityFeed();
     loadRequests();
     loadRoster();
     loadSubEvents();
@@ -650,6 +879,8 @@
 
   (async () => {
     loadBranding();
+    loadApprovalConfig();
+    loadAdmins();
     await loadEventList();
     loadAll();
   })();

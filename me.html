@@ -45,6 +45,11 @@
     <h2>Flight information</h2>
     <div id="flight-section"></div>
   </div>
+
+  <div class="card" id="sub-events-card" style="display:none;">
+    <h2>Sessions</h2>
+    <div id="sub-events-section"></div>
+  </div>
 </div>
 
 <script src="config.js"></script>
@@ -210,6 +215,47 @@
     }
   }
 
+  // ADR 0010 — sessions a guest can opt into. signedUp reflects the
+  // guest's own attendance row regardless of how they got enrolled
+  // (self-signup, admin bulk-enroll, or auto-enroll) — the DELETE route
+  // doesn't distinguish source, so "Leave" works the same for all three.
+  async function loadSubEvents() {
+    const res = await api("/sub-events");
+    if (!res.ok) return;
+    const subEvents = await res.json();
+    const card = document.getElementById("sub-events-card");
+    if (subEvents.length === 0) {
+      card.style.display = "none";
+      return;
+    }
+    card.style.display = "";
+
+    document.getElementById("sub-events-section").innerHTML = subEvents
+      .map(
+        (se) => `
+      <div class="field-row" style="align-items:center; margin-bottom: 10px;">
+        <div>
+          <strong>${se.name}</strong><br />
+          <span class="hint" style="margin:0;">${new Date(se.startsAt).toLocaleString()} – ${new Date(se.endsAt).toLocaleString()}${se.location ? ` · ${se.location}` : ""}</span>
+        </div>
+        <button class="btn ${se.signedUp ? "ghost" : ""} sub-event-toggle-btn" data-id="${se.id}" data-signed-up="${se.signedUp}">
+          ${se.signedUp ? "Signed up ✓ — Leave" : "Sign up"}
+        </button>
+      </div>`,
+      )
+      .join("");
+
+    document.querySelectorAll(".sub-event-toggle-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const signedUp = btn.dataset.signedUp === "true";
+        const res = await api(`/sub-events/${btn.dataset.id}/signup`, {
+          method: signedUp ? "DELETE" : "POST",
+        });
+        if (res.ok) loadSubEvents();
+      });
+    });
+  }
+
   async function loadMe() {
     const res = await api("/me");
     const attendee = await res.json();
@@ -219,6 +265,7 @@
     document.getElementById("allergyDetail").value = attendee.dietary?.allergyDetail ?? "";
     renderHotel(attendee);
     renderFlight(attendee);
+    loadSubEvents();
     if (!loadMe.brandingLoaded) {
       loadMe.brandingLoaded = true;
       loadBranding(attendee.eventId);
