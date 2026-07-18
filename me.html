@@ -8,6 +8,7 @@
 </head>
 <body>
 <div class="shell">
+  <img id="org-logo" class="org-logo" alt="" />
   <h1 id="attendee-name">Your registration</h1>
   <p class="hint">Internal/external status and travel window are set by the event organizer.</p>
 
@@ -56,6 +57,37 @@
   const notice = document.getElementById("notice");
   function showNotice(text, kind) {
     notice.innerHTML = `<div class="notice ${kind}">${text}</div>`;
+  }
+
+  // ADR 0009 — same theming approach as index.html; me.html has no
+  // ?event= query param (it's reached via a stored session, not a URL), so
+  // it resolves eventId from /me's own response instead, then fetches the
+  // same public endpoint index.html uses.
+  function applyBranding(branding) {
+    if (!branding) return;
+    if (branding.primaryColor) {
+      document.documentElement.style.setProperty("--navy", branding.primaryColor);
+      document.documentElement.style.setProperty("--navy-mid", branding.primaryColor);
+    }
+    if (branding.accentColor) {
+      document.documentElement.style.setProperty("--accent", branding.accentColor);
+    }
+    if (branding.logoUrl) {
+      const logo = document.getElementById("org-logo");
+      logo.src = branding.logoUrl;
+      logo.style.display = "block";
+    }
+  }
+
+  async function loadBranding(eventId) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/events/${encodeURIComponent(eventId)}/public`);
+      if (!res.ok) return;
+      const event = await res.json();
+      applyBranding(event.branding);
+    } catch (err) {
+      // Branding is cosmetic — a failed fetch here shouldn't block the page.
+    }
   }
 
   async function api(path, options = {}) {
@@ -187,6 +219,10 @@
     document.getElementById("allergyDetail").value = attendee.dietary?.allergyDetail ?? "";
     renderHotel(attendee);
     renderFlight(attendee);
+    if (!loadMe.brandingLoaded) {
+      loadMe.brandingLoaded = true;
+      loadBranding(attendee.eventId);
+    }
   }
 
   document.getElementById("save-dietary").addEventListener("click", async () => {

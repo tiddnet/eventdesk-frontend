@@ -8,6 +8,7 @@
 </head>
 <body>
 <div class="shell" style="max-width: 420px; padding-top: 80px;">
+  <img id="org-logo" class="org-logo" alt="" />
   <h1 id="heading">EventDesk</h1>
   <p class="hint" id="subheading">Enter your email — we'll send a sign-in link.</p>
 
@@ -50,6 +51,26 @@
 
   function showNotice(text, kind) {
     notice.innerHTML = `<div class="notice ${kind}">${text}</div>`;
+  }
+
+  // ADR 0009 — applies an org's branding (if any) via the CSS custom
+  // properties style.css already expresses every color through. Null/
+  // missing fields are left alone, so a partial branding object (e.g. just
+  // a logo, no colors) doesn't fall back to nothing.
+  function applyBranding(branding) {
+    if (!branding) return;
+    if (branding.primaryColor) {
+      document.documentElement.style.setProperty("--navy", branding.primaryColor);
+      document.documentElement.style.setProperty("--navy-mid", branding.primaryColor);
+    }
+    if (branding.accentColor) {
+      document.documentElement.style.setProperty("--accent", branding.accentColor);
+    }
+    if (branding.logoUrl) {
+      const logo = document.getElementById("org-logo");
+      logo.src = branding.logoUrl;
+      logo.style.display = "block";
+    }
   }
 
   function showDevLinkOrSuccess(data, successText) {
@@ -131,6 +152,7 @@
       document.getElementById("admin-signin-card").style.display = "none";
       document.getElementById("heading").textContent = event.name;
       document.getElementById("subheading").textContent = `${event.startDate} – ${event.endDate}`;
+      applyBranding(event.branding);
 
       if (event.allowSelfRegistration) {
         document.getElementById("register-card").style.display = "";

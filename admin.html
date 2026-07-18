@@ -32,6 +32,20 @@
   <div id="notice"></div>
 
   <div class="card">
+    <h2>Branding</h2>
+    <p class="hint">Organization-wide — applies to every guest-facing page across all your events.</p>
+    <div class="field-row">
+      <div class="field"><label for="brand-display-name">Display name</label><input id="brand-display-name" placeholder="Defaults to event name" /></div>
+      <div class="field"><label for="brand-logo-url">Logo URL</label><input id="brand-logo-url" placeholder="https://…" /></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label for="brand-primary-color">Primary color</label><input id="brand-primary-color" type="color" /></div>
+      <div class="field"><label for="brand-accent-color">Accent color</label><input id="brand-accent-color" type="color" /></div>
+    </div>
+    <button class="btn ghost" id="save-branding">Save branding</button>
+  </div>
+
+  <div class="card">
     <h2>Registration</h2>
     <label style="font-size: 12.5px;">
       <input type="checkbox" id="allow-self-registration" /> Allow public self-registration for this event
@@ -380,6 +394,37 @@
 
   document.getElementById("cancel-edit-attendee").addEventListener("click", resetAttendeeForm);
 
+  // ADR 0009 — org-level, not event-scoped, so this loads once at startup
+  // rather than on every event-select change like loadAll()'s other calls.
+  async function loadBranding() {
+    const res = await api("/organization");
+    if (!res.ok) return;
+    const org = await res.json();
+    const b = org.branding ?? {};
+    document.getElementById("brand-display-name").value = b.displayName ?? "";
+    document.getElementById("brand-logo-url").value = b.logoUrl ?? "";
+    document.getElementById("brand-primary-color").value = b.primaryColor ?? "#1b3a63";
+    document.getElementById("brand-accent-color").value = b.accentColor ?? "#a93226";
+  }
+
+  document.getElementById("save-branding").addEventListener("click", async () => {
+    const res = await api("/organization/branding", {
+      method: "PATCH",
+      body: JSON.stringify({
+        displayName: document.getElementById("brand-display-name").value || null,
+        logoUrl: document.getElementById("brand-logo-url").value || null,
+        primaryColor: document.getElementById("brand-primary-color").value || null,
+        accentColor: document.getElementById("brand-accent-color").value || null,
+      }),
+    });
+    if (res.ok) {
+      showNotice("Branding saved.", "success");
+    } else {
+      const err = await res.json();
+      showNotice(err.error ?? "Could not save branding.", "error");
+    }
+  });
+
   async function loadRegistrationSettings() {
     // Public endpoint (ADR 0004) — deliberately not routed through api(),
     // which always prefixes /admin and attaches the admin session; this
@@ -604,6 +649,7 @@
   }
 
   (async () => {
+    loadBranding();
     await loadEventList();
     loadAll();
   })();
