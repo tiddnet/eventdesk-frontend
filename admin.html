@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- ADR 0018 — see index.html for the full rationale/limitations note. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' https://eventdesk-api.toddcampbell-eventdesk.workers.dev; object-src 'none'; base-uri 'none'; frame-ancestors 'none';" />
 <title>EventDesk — Admin</title>
 <link rel="stylesheet" href="style.css" />
 </head>
@@ -220,7 +222,7 @@
     const events = await res.json();
     const select = document.getElementById("event-select");
     select.innerHTML = events
-      .map((e) => `<option value="${e.id}">${e.name}</option>`)
+      .map((e) => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}</option>`)
       .join("");
     if (selectId) select.value = selectId;
     return events;
@@ -251,7 +253,7 @@
     });
     if (res.ok) {
       const data = await res.json();
-      showNotice(`Event "${name}" created.`, "success");
+      showNotice(`Event "${escapeHtml(name)}" created.`, "success");
       document.getElementById("new-event-card").style.display = "none";
       await loadEventList(data.id);
       loadAll();
@@ -267,7 +269,7 @@
     document.getElementById("event-notes-list").innerHTML = notes.length
       ? notes
           .map(
-            (n) => `<p class="hint" style="margin:0 0 6px;"><strong style="color:var(--ink);">${new Date(n.createdAt).toLocaleDateString()}</strong> — ${n.note} <span style="color:var(--ink-faint);">(${n.createdByEmail})</span></p>`,
+            (n) => `<p class="hint" style="margin:0 0 6px;"><strong style="color:var(--ink);">${new Date(n.createdAt).toLocaleDateString()}</strong> — ${escapeHtml(n.note)} <span style="color:var(--ink-faint);">(${escapeHtml(n.createdByEmail)})</span></p>`,
           )
           .join("")
       : `<p class="hint" style="margin:0;">No notes yet.</p>`;
@@ -292,17 +294,20 @@
     document.getElementById("changes-body").innerHTML = rows
       .map((r) => {
         const newVal = JSON.parse(r.newValue);
+        // ADR 0018 — this is the guest-submitted free text itself
+        // (dietary preference, flight numbers), the exact payload the
+        // XSS finding is about. Escape every value.
         const summary = Object.entries(newVal)
-          .map(([k, v]) => `${k}: ${v || "—"}`)
+          .map(([k, v]) => `${escapeHtml(k)}: ${escapeHtml(v) || "—"}`)
           .join(", ");
         return `
       <tr>
-        <td>${r.firstName} ${r.lastName} ${r.isVip ? '<span class="badge vip">VIP</span>' : ""}</td>
-        <td>${r.fieldType}</td>
+        <td>${escapeHtml(r.firstName)} ${escapeHtml(r.lastName)} ${r.isVip ? '<span class="badge vip">VIP</span>' : ""}</td>
+        <td>${escapeHtml(r.fieldType)}</td>
         <td>${summary}</td>
         <td>
-          <button class="btn ghost reject-change-btn" data-id="${r.id}">Reject</button>
-          <button class="btn approve-change-btn" data-id="${r.id}">Approve</button>
+          <button class="btn ghost reject-change-btn" data-id="${escapeHtml(r.id)}">Reject</button>
+          <button class="btn approve-change-btn" data-id="${escapeHtml(r.id)}">Approve</button>
         </td>
       </tr>`;
       })
@@ -335,13 +340,13 @@
       .map((r) => {
         const val = JSON.parse(r.newValue);
         const summary = Object.entries(val)
-          .map(([k, v]) => `${k}: ${v || "—"}`)
+          .map(([k, v]) => `${escapeHtml(k)}: ${escapeHtml(v) || "—"}`)
           .join(", ");
         const byLabel = r.changedByRole === "admin" ? "Admin" : r.status === "approved" ? "Guest (approved)" : "Guest";
         return `
       <tr>
-        <td>${r.firstName} ${r.lastName} ${r.isVip ? '<span class="badge vip">VIP</span>' : ""}</td>
-        <td>${r.fieldType}</td>
+        <td>${escapeHtml(r.firstName)} ${escapeHtml(r.lastName)} ${r.isVip ? '<span class="badge vip">VIP</span>' : ""}</td>
+        <td>${escapeHtml(r.fieldType)}</td>
         <td>${summary}</td>
         <td>${byLabel}</td>
         <td>${new Date(r.createdAt).toLocaleString()}</td>
@@ -357,12 +362,12 @@
       .map(
         (r) => `
       <tr>
-        <td>${r.firstName} ${r.lastName} ${r.isVip ? '<span class="badge vip">VIP</span>' : ""}</td>
-        <td>${r.requestedCheckIn} → ${r.requestedCheckOut}</td>
-        <td>${r.note ?? ""}</td>
+        <td>${escapeHtml(r.firstName)} ${escapeHtml(r.lastName)} ${r.isVip ? '<span class="badge vip">VIP</span>' : ""}</td>
+        <td>${escapeHtml(r.requestedCheckIn)} → ${escapeHtml(r.requestedCheckOut)}</td>
+        <td>${escapeHtml(r.note ?? "")}</td>
         <td>
-          <button class="btn ghost book-btn" data-attendee="${r.attendeeId}" data-in="${r.requestedCheckIn}" data-out="${r.requestedCheckOut}">Book room</button>
-          <button class="btn ghost dismiss-request-btn" data-request="${r.requestId}" style="color:var(--ink-faint);">Dismiss</button>
+          <button class="btn ghost book-btn" data-attendee="${escapeHtml(r.attendeeId)}" data-in="${escapeHtml(r.requestedCheckIn)}" data-out="${escapeHtml(r.requestedCheckOut)}">Book room</button>
+          <button class="btn ghost dismiss-request-btn" data-request="${escapeHtml(r.requestId)}" style="color:var(--ink-faint);">Dismiss</button>
         </td>
       </tr>`,
       )
@@ -409,16 +414,17 @@
       .map(
         (a) => `
       <tr>
-        <td>${a.firstName} ${a.lastName} ${a.isVip ? '<span class="badge vip">VIP</span>' : ""}</td>
-        <td><span class="badge">${a.affiliation}</span></td>
+        <td>${escapeHtml(a.firstName)} ${escapeHtml(a.lastName)} ${a.isVip ? '<span class="badge vip">VIP</span>' : ""}</td>
+        <td><span class="badge">${escapeHtml(a.affiliation)}</span></td>
         <td>${a.registrationSource === "self_registered" ? '<span class="badge">self-registered</span>' : "admin-added"}</td>
-        <td>${a.billedToMaster ? "Master account" : (a.companyName ?? "Own company")}</td>
-        <td><button class="btn ghost flight-btn" data-attendee="${a.id}" style="padding:4px 8px; font-size:11px;">✈ Set</button></td>
+        <td>${a.billedToMaster ? "Master account" : escapeHtml(a.companyName ?? "Own company")}</td>
+        <td><button class="btn ghost flight-btn" data-attendee="${escapeHtml(a.id)}" style="padding:4px 8px; font-size:11px;">✈ Set</button></td>
         <td>${a.hasPrivateNote ? "●" : ""}</td>
         <td>
-          <button class="btn ghost edit-btn" data-attendee="${a.id}" style="padding:4px 8px; font-size:11px;">Edit</button>
-          <button class="btn ghost notes-btn" data-attendee="${a.id}" style="padding:4px 8px; font-size:11px;">Notes</button>
-          <button class="btn ghost remove-btn" data-attendee="${a.id}" data-name="${a.firstName} ${a.lastName}" style="padding:4px 8px; font-size:11px; color:var(--accent);">Remove</button>
+          <button class="btn ghost edit-btn" data-attendee="${escapeHtml(a.id)}" style="padding:4px 8px; font-size:11px;">Edit</button>
+          <button class="btn ghost notes-btn" data-attendee="${escapeHtml(a.id)}" style="padding:4px 8px; font-size:11px;">Notes</button>
+          <button class="btn ghost resend-invite-btn" data-attendee="${escapeHtml(a.id)}" style="padding:4px 8px; font-size:11px;">Invite link</button>
+          <button class="btn ghost remove-btn" data-attendee="${escapeHtml(a.id)}" data-name="${escapeHtml(a.firstName)} ${escapeHtml(a.lastName)}" style="padding:4px 8px; font-size:11px; color:var(--accent);">Remove</button>
         </td>
       </tr>`,
       )
@@ -492,6 +498,26 @@
         } else {
           const err = await res.json();
           showNotice(err.error ?? "Could not remove attendee.", "error");
+        }
+      });
+    });
+
+    // ADR 0019 — mints a fresh magic link on demand (the original
+    // create-attendee toast's link is a 15-minute token, long stale by
+    // the time an admin might dig it back out of a closed tab).
+    document.querySelectorAll(".resend-invite-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const res = await api(`/attendees/${btn.dataset.attendee}/resend-invite`, { method: "POST" });
+        const data = await res.json();
+        if (res.ok) {
+          showNotice(
+            data.devLink
+              ? `Dev mode — no email sent: <a href="${escapeHtml(data.devLink)}">sign-in link</a>.`
+              : "Sign-in link resent.",
+            "success",
+          );
+        } else {
+          showNotice(data.error ?? "Could not resend invite.", "error");
         }
       });
     });
@@ -611,7 +637,7 @@
     const rows = await res.json();
     document.getElementById("admins-body").innerHTML = rows
       .map(
-        (a) => `<tr><td>${a.email}</td><td><span class="badge">${a.role}</span></td><td><button class="btn ghost revoke-admin-btn" data-id="${a.id}" data-email="${a.email}" style="padding:4px 8px; font-size:11px; color:var(--accent);">Revoke</button></td></tr>`,
+        (a) => `<tr><td>${escapeHtml(a.email)}</td><td><span class="badge">${escapeHtml(a.role)}</span></td><td><button class="btn ghost revoke-admin-btn" data-id="${escapeHtml(a.id)}" data-email="${escapeHtml(a.email)}" style="padding:4px 8px; font-size:11px; color:var(--accent);">Revoke</button></td></tr>`,
       )
       .join("");
 
@@ -736,15 +762,15 @@
       .map(
         (se) => `
       <tr>
-        <td>${se.name}</td>
+        <td>${escapeHtml(se.name)}</td>
         <td>${new Date(se.startsAt).toLocaleString()}</td>
         <td>${se.autoEnrollNewAttendees ? "On" : "Off"}</td>
         <td>${se.attendeeCount}</td>
         <td>${se.publishedPdfUrl ? "Published" : "Not published"}</td>
         <td>
-          ${!se.autoEnrollNewAttendees ? `<button class="btn ghost enroll-all-btn" data-id="${se.id}" style="font-size:11px;">Enroll all</button>` : ""}
-          <button class="btn ghost publish-btn" data-id="${se.id}" style="font-size:11px;">Publish PDF</button>
-          <button class="btn ghost delete-subevent-btn" data-id="${se.id}" data-name="${se.name}" style="font-size:11px; color:var(--accent);">Delete</button>
+          ${!se.autoEnrollNewAttendees ? `<button class="btn ghost enroll-all-btn" data-id="${escapeHtml(se.id)}" style="font-size:11px;">Enroll all</button>` : ""}
+          <button class="btn ghost publish-btn" data-id="${escapeHtml(se.id)}" style="font-size:11px;">Publish PDF</button>
+          <button class="btn ghost delete-subevent-btn" data-id="${escapeHtml(se.id)}" data-name="${escapeHtml(se.name)}" style="font-size:11px; color:var(--accent);">Delete</button>
         </td>
       </tr>`,
       )
@@ -849,12 +875,12 @@
             .map(
               (r) => `
             <tr>
-              <td>${r.rawName}</td>
-              <td>${r.matchConfidence}</td>
-              <td>${r.rawConfirmation}</td>
+              <td>${escapeHtml(r.rawName)}</td>
+              <td>${escapeHtml(r.matchConfidence)}</td>
+              <td>${escapeHtml(r.rawConfirmation)}</td>
               <td>${
                 r.matchedAttendeeId
-                  ? `<button class="btn ghost resolve-btn" data-row="${r.rowId}" data-attendee="${r.matchedAttendeeId}" data-conf="${r.rawConfirmation}">Confirm match</button>`
+                  ? `<button class="btn ghost resolve-btn" data-row="${escapeHtml(r.rowId)}" data-attendee="${escapeHtml(r.matchedAttendeeId)}" data-conf="${escapeHtml(r.rawConfirmation)}">Confirm match</button>`
                   : "needs manual match"
               }</td>
             </tr>`,
@@ -862,7 +888,7 @@
             .join("")}
         </tbody>
       </table>
-      <p class="hint">Batch: ${data.batchId}</p>
+      <p class="hint">Batch: ${escapeHtml(data.batchId)}</p>
     `;
 
     document.querySelectorAll(".resolve-btn").forEach((btn) => {

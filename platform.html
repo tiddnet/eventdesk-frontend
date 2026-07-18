@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- ADR 0018 — see index.html for the full rationale/limitations note. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' https://eventdesk-api.toddcampbell-eventdesk.workers.dev; object-src 'none'; base-uri 'none'; frame-ancestors 'none';" />
 <title>EventDesk — Platform</title>
 <link rel="stylesheet" href="style.css" />
 </head>
@@ -71,31 +73,31 @@
       .map(
         (o) => `
       <tr>
-        <td>${o.name}</td>
+        <td>${escapeHtml(o.name)}</td>
         <td>
           ${o.admins
             .map(
-              (a) => `<div style="margin-bottom:2px;">${a.email} <span class="badge">${a.role}</span>
-                <button class="btn ghost resend-link-btn" data-org="${o.id}" data-membership="${a.id}" data-email="${a.email}" style="padding:1px 6px; font-size:10px;">Resend link</button></div>`,
+              (a) => `<div style="margin-bottom:2px;">${escapeHtml(a.email)} <span class="badge">${escapeHtml(a.role)}</span>
+                <button class="btn ghost resend-link-btn" data-org="${escapeHtml(o.id)}" data-membership="${escapeHtml(a.id)}" data-email="${escapeHtml(a.email)}" style="padding:1px 6px; font-size:10px;">Resend link</button></div>`,
             )
             .join("") || `<span class="hint" style="margin:0;">none</span>`}
         </td>
-        <td><span class="badge ${o.status === "suspended" ? "vip" : ""}">${o.status}</span></td>
+        <td><span class="badge ${o.status === "suspended" ? "vip" : ""}">${escapeHtml(o.status)}</span></td>
         <td>
           ${o.eventCount}
-          <button class="btn ghost view-events-btn" data-org="${o.id}" style="padding:2px 8px; font-size:11px; margin-left:6px;">View</button>
+          <button class="btn ghost view-events-btn" data-org="${escapeHtml(o.id)}" style="padding:2px 8px; font-size:11px; margin-left:6px;">View</button>
         </td>
         <td>${new Date(o.createdAt).toLocaleDateString()}</td>
         <td>
-          <button class="btn ghost suspend-btn" data-org="${o.id}" data-status="${o.status}" style="padding:4px 8px; font-size:11px;">
+          <button class="btn ghost suspend-btn" data-org="${escapeHtml(o.id)}" data-status="${escapeHtml(o.status)}" style="padding:4px 8px; font-size:11px;">
             ${o.status === "suspended" ? "Reactivate" : "Suspend"}
           </button>
-          <button class="btn ghost delete-btn" data-org="${o.id}" data-name="${o.name}" data-events="${o.eventCount}" style="padding:4px 8px; font-size:11px; color:var(--accent);" ${o.eventCount > 0 ? "disabled title=\"Has events — suspend instead\"" : ""}>
+          <button class="btn ghost delete-btn" data-org="${escapeHtml(o.id)}" data-name="${escapeHtml(o.name)}" data-events="${o.eventCount}" style="padding:4px 8px; font-size:11px; color:var(--accent);" ${o.eventCount > 0 ? "disabled title=\"Has events — suspend instead\"" : ""}>
             Delete
           </button>
         </td>
       </tr>
-      <tr id="events-panel-${o.id}" style="display:none;"><td colspan="6" style="background:var(--bg);"></td></tr>`,
+      <tr id="events-panel-${escapeHtml(o.id)}" style="display:none;"><td colspan="6" style="background:var(--bg);"></td></tr>`,
       )
       .join("");
 
@@ -106,10 +108,14 @@
         });
         const data = await res.json();
         if (res.ok) {
+          // ADR 0018 — btn.dataset.email is the browser's decoded copy of
+          // the attribute we escaped on write; interpolating it into a
+          // *second* HTML string here needs its own escape, the write-time
+          // escaping doesn't carry over.
           showNotice(
             data.devLink
-              ? `Dev mode — no email sent: <a href="${data.devLink}">${btn.dataset.email}'s sign-in link</a>.`
-              : `Sign-in link resent to ${btn.dataset.email}.`,
+              ? `Dev mode — no email sent: <a href="${escapeHtml(data.devLink)}">${escapeHtml(btn.dataset.email)}'s sign-in link</a>.`
+              : `Sign-in link resent to ${escapeHtml(btn.dataset.email)}.`,
             "success",
           );
         } else {
@@ -135,7 +141,7 @@
         const evs = await res.json();
         cell.innerHTML = evs.length
           ? `<table style="margin:8px 0;"><thead><tr><th>Event</th><th>Dates</th><th>Attendees</th></tr></thead><tbody>
-              ${evs.map((e) => `<tr><td>${e.name}</td><td>${e.startDate} – ${e.endDate}</td><td>${e.attendeeCount}</td></tr>`).join("")}
+              ${evs.map((e) => `<tr><td>${escapeHtml(e.name)}</td><td>${escapeHtml(e.startDate)} – ${escapeHtml(e.endDate)}</td><td>${e.attendeeCount}</td></tr>`).join("")}
              </tbody></table>`
           : `<p class="hint" style="margin:8px 0;">No events yet.</p>`;
       });
@@ -190,8 +196,8 @@
       if (res.ok) {
         showNotice(
           data.devLink
-            ? `"${name}" created. Dev mode — no email sent to the new admin: <a href="${data.devLink}">their sign-in link</a>.`
-            : `"${name}" created — an invite was sent to ${adminEmail}.`,
+            ? `"${escapeHtml(name)}" created. Dev mode — no email sent to the new admin: <a href="${escapeHtml(data.devLink)}">their sign-in link</a>.`
+            : `"${escapeHtml(name)}" created — an invite was sent to ${escapeHtml(adminEmail)}.`,
           "success",
         );
         document.getElementById("org-name").value = "";

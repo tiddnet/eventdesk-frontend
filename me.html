@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- ADR 0018 — see index.html for the full rationale/limitations note. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' https://eventdesk-api.toddcampbell-eventdesk.workers.dev; object-src 'none'; base-uri 'none'; frame-ancestors 'none';" />
 <title>EventDesk — Your registration</title>
 <link rel="stylesheet" href="style.css" />
 </head>
@@ -121,14 +123,14 @@
         <div class="field-row">
           <div class="field">
             <label>Room</label>
-            <div class="readonly-field">${hotel.roomNumber ?? "—"}</div>
+            <div class="readonly-field">${escapeHtml(hotel.roomNumber ?? "—")}</div>
           </div>
           <div class="field">
             <label>Confirmation code</label>
-            <div class="readonly-field">${hotel.confirmationNumber ?? "Pending"}</div>
+            <div class="readonly-field">${escapeHtml(hotel.confirmationNumber ?? "Pending")}</div>
           </div>
         </div>
-        <p class="hint">Check-in ${hotel.checkInDate} → Check-out ${hotel.checkOutDate}</p>
+        <p class="hint">Check-in ${escapeHtml(hotel.checkInDate)} → Check-out ${escapeHtml(hotel.checkOutDate)}</p>
       `;
       return;
     }
@@ -136,7 +138,7 @@
     const alreadyRequested = hotel.openRequests.length > 0;
     el.innerHTML = `
       <p class="hint">We haven't booked your room yet — tell us your dates and we'll confirm a room and code here.</p>
-      ${alreadyRequested ? `<div class="notice warn">Request submitted: ${hotel.openRequests[0].requestedCheckIn} → ${hotel.openRequests[0].requestedCheckOut}. Awaiting booking.</div>` : ""}
+      ${alreadyRequested ? `<div class="notice warn">Request submitted: ${escapeHtml(hotel.openRequests[0].requestedCheckIn)} → ${escapeHtml(hotel.openRequests[0].requestedCheckOut)}. Awaiting booking.</div>` : ""}
       <div class="field-row">
         <div class="field"><label for="checkin">Preferred check-in</label><input id="checkin" type="date" /></div>
         <div class="field"><label for="checkout">Preferred check-out</label><input id="checkout" type="date" /></div>
@@ -180,8 +182,8 @@
       el.innerHTML = `
         <p class="hint">Booked directly by our team.</p>
         <div class="field-row">
-          <div class="field"><label>Arrival</label><div class="readonly-field">${flight.arrivalFlight ?? "—"}</div></div>
-          <div class="field"><label>Departure</label><div class="readonly-field">${flight.departureFlight ?? "—"}</div></div>
+          <div class="field"><label>Arrival</label><div class="readonly-field">${escapeHtml(flight.arrivalFlight ?? "—")}</div></div>
+          <div class="field"><label>Departure</label><div class="readonly-field">${escapeHtml(flight.departureFlight ?? "—")}</div></div>
         </div>
       `;
       return;
@@ -190,10 +192,10 @@
     const pending = flight?.pendingChange;
     el.innerHTML = `
       <p class="hint">Most employee travel is booked by our team. As an external guest, you're managing your own.</p>
-      ${pending ? `<div class="notice warn">⏳ Pending review: ${pending.arrivalFlight || "—"} / ${pending.departureFlight || "—"}. The values below still show what's currently confirmed until the organizer approves it.</div>` : ""}
+      ${pending ? `<div class="notice warn">⏳ Pending review: ${escapeHtml(pending.arrivalFlight || "—")} / ${escapeHtml(pending.departureFlight || "—")}. The values below still show what's currently confirmed until the organizer approves it.</div>` : ""}
       <div class="field-row">
-        <div class="field"><label for="arrival">Arrival flight</label><input id="arrival" value="${flight?.arrivalFlight ?? ""}" /></div>
-        <div class="field"><label for="departure">Departure flight</label><input id="departure" value="${flight?.departureFlight ?? ""}" /></div>
+        <div class="field"><label for="arrival">Arrival flight</label><input id="arrival" value="${escapeHtml(flight?.arrivalFlight ?? "")}" /></div>
+        <div class="field"><label for="departure">Departure flight</label><input id="departure" value="${escapeHtml(flight?.departureFlight ?? "")}" /></div>
       </div>
       <button class="btn" id="save-flight" ${pending ? "disabled" : ""}>${pending ? "Awaiting review" : "Save"}</button>
     `;
@@ -235,10 +237,10 @@
         (se) => `
       <div class="field-row" style="align-items:center; margin-bottom: 10px;">
         <div>
-          <strong>${se.name}</strong><br />
-          <span class="hint" style="margin:0;">${new Date(se.startsAt).toLocaleString()} – ${new Date(se.endsAt).toLocaleString()}${se.location ? ` · ${se.location}` : ""}</span>
+          <strong>${escapeHtml(se.name)}</strong><br />
+          <span class="hint" style="margin:0;">${new Date(se.startsAt).toLocaleString()} – ${new Date(se.endsAt).toLocaleString()}${se.location ? ` · ${escapeHtml(se.location)}` : ""}</span>
         </div>
-        <button class="btn ${se.signedUp ? "ghost" : ""} sub-event-toggle-btn" data-id="${se.id}" data-signed-up="${se.signedUp}">
+        <button class="btn ${se.signedUp ? "ghost" : ""} sub-event-toggle-btn" data-id="${escapeHtml(se.id)}" data-signed-up="${se.signedUp}">
           ${se.signedUp ? "Signed up ✓ — Leave" : "Sign up"}
         </button>
       </div>`,

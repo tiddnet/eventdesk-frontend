@@ -3,6 +3,11 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- ADR 0018 — defense-in-depth, not the primary fix (escaping is). script-src
+     still needs 'unsafe-inline': every page's logic is one inline <script>
+     block, no build step to add nonces. img-src allows any https: source
+     since ADR 0009's per-org branding logoUrl is an admin-set external URL. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' https://eventdesk-api.toddcampbell-eventdesk.workers.dev; object-src 'none'; base-uri 'none'; frame-ancestors 'none';" />
 <title>EventDesk — Sign in</title>
 <link rel="stylesheet" href="style.css" />
 </head>
@@ -167,6 +172,12 @@
     }
   }
 
+  // ADR 0019 — returns true only on a *successful* verify (redirects away
+  // immediately, so the caller never needs to do anything else). On
+  // failure/expiry, returns false so the caller can fall through to
+  // setUpEventMode() when a guest link's ?event= param is present — this
+  // used to unconditionally return true whenever a token existed, which
+  // meant an expired guest link could never reach that fallback at all.
   async function verifyFromUrl() {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
@@ -186,10 +197,16 @@
       // would have silently fallen into the guest page.
       const destinations = { admin: "admin.html", platform_admin: "platform.html" };
       window.location.href = destinations[data.role] ?? "me.html";
+      return true;
     } catch (err) {
-      showNotice("That link is invalid or expired. Request a new one below.", "error");
+      const eventId = params.get("event");
+      if (!eventId) {
+        showNotice("That link is invalid or expired. Request a new one below.", "error");
+      }
+      // else: fall through silently — setUpEventMode's own card (register
+      // or closed) replaces the generic error with something actionable.
+      return false;
     }
-    return true;
   }
 
   document.getElementById("submit-btn").addEventListener("click", requestAdminMagicLink);
