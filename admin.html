@@ -18,6 +18,18 @@
   <div id="notice"></div>
 
   <div class="card">
+    <h2>Registration</h2>
+    <label style="font-size: 12.5px;">
+      <input type="checkbox" id="allow-self-registration" /> Allow public self-registration for this event
+    </label>
+    <button class="btn ghost" id="save-registration-setting" style="margin-left: 12px; padding: 4px 10px; font-size: 12px;">Save</button>
+    <p class="hint" style="margin: 10px 0 0;">
+      Public registration link: <code id="registration-link"></code>
+      <button class="btn ghost" id="copy-registration-link" style="padding: 2px 8px; font-size: 11px;">Copy</button>
+    </p>
+  </div>
+
+  <div class="card">
     <h2>Needs sign-off</h2>
     <p class="hint">Guest-submitted changes only — anything you enter directly applies immediately.</p>
     <table>
@@ -48,7 +60,7 @@
     <label style="font-size: 12.5px;"><input type="checkbox" id="new-vip" /> VIP</label>
     <button class="btn" id="add-attendee" style="margin-left: 12px;">Add attendee</button>
     <table style="margin-top: 14px;">
-      <thead><tr><th>Name</th><th>Affiliation</th><th>Billing</th><th>Private note</th><th>Add note</th></tr></thead>
+      <thead><tr><th>Name</th><th>Affiliation</th><th>Source</th><th>Billing</th><th>Private note</th><th></th></tr></thead>
       <tbody id="roster-body"></tbody>
     </table>
   </div>
@@ -208,9 +220,13 @@
       <tr>
         <td>${a.firstName} ${a.lastName} ${a.isVip ? '<span class="badge vip">VIP</span>' : ""}</td>
         <td><span class="badge">${a.affiliation}</span></td>
+        <td>${a.registrationSource === "self_registered" ? '<span class="badge">self-registered</span>' : "admin-added"}</td>
         <td>${a.billedToMaster ? "Master account" : (a.companyName ?? "Own company")}</td>
         <td>${a.hasPrivateNote ? "●" : ""}</td>
-        <td><button class="btn ghost note-btn" data-attendee="${a.id}" style="padding:4px 8px; font-size:11px;">+ Note</button></td>
+        <td>
+          <button class="btn ghost note-btn" data-attendee="${a.id}" style="padding:4px 8px; font-size:11px;">+ Note</button>
+          <button class="btn ghost remove-btn" data-attendee="${a.id}" data-name="${a.firstName} ${a.lastName}" style="padding:4px 8px; font-size:11px; color:var(--accent);">Remove</button>
+        </td>
       </tr>`,
       )
       .join("");
@@ -229,7 +245,45 @@
         }
       });
     });
+
+    document.querySelectorAll(".remove-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!confirm(`Remove ${btn.dataset.name}? This deletes all their data (dietary, hotel, flight, notes) and can't be undone.`)) return;
+        const res = await api(`/attendees/${btn.dataset.attendee}`, { method: "DELETE" });
+        if (res.ok) {
+          showNotice("Attendee removed.", "success");
+          loadRoster();
+        }
+      });
+    });
   }
+
+  async function loadRegistrationSettings() {
+    // Public endpoint (ADR 0004) — deliberately not routed through api(),
+    // which always prefixes /admin and attaches the admin session; this
+    // one is the same unauthenticated call a guest's browser would make.
+    const res = await fetch(`${API_BASE_URL}/events/${eventId()}/public`);
+    if (!res.ok) return;
+    const event = await res.json();
+    document.getElementById("allow-self-registration").checked = event.allowSelfRegistration;
+    document.getElementById("registration-link").textContent =
+      `${window.location.origin}${window.location.pathname.replace("admin.html", "")}index.html?event=${eventId()}`;
+  }
+
+  document.getElementById("save-registration-setting").addEventListener("click", async () => {
+    const res = await api(`/events/${eventId()}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        allowSelfRegistration: document.getElementById("allow-self-registration").checked,
+      }),
+    });
+    if (res.ok) showNotice("Registration setting saved.", "success");
+  });
+
+  document.getElementById("copy-registration-link").addEventListener("click", () => {
+    navigator.clipboard.writeText(document.getElementById("registration-link").textContent);
+    showNotice("Link copied.", "success");
+  });
 
   document.getElementById("add-attendee").addEventListener("click", async () => {
     const res = await api(`/events/${eventId()}/attendees`, {
@@ -399,6 +453,7 @@
   });
 
   function loadAll() {
+    loadRegistrationSettings();
     loadChanges();
     loadRequests();
     loadRoster();

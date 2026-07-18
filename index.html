@@ -8,17 +8,39 @@
 </head>
 <body>
 <div class="shell" style="max-width: 420px; padding-top: 80px;">
-  <h1>EventDesk</h1>
-  <p class="hint">Enter your email — we'll send a sign-in link.</p>
+  <h1 id="heading">EventDesk</h1>
+  <p class="hint" id="subheading">Enter your email — we'll send a sign-in link.</p>
 
   <div id="notice"></div>
 
-  <div class="card">
+  <div class="card" id="admin-signin-card">
     <div class="field">
       <label for="email">Email</label>
       <input id="email" type="email" placeholder="you@example.com" autocomplete="email" />
     </div>
     <button class="btn" id="submit-btn" style="width:100%;">Send sign-in link</button>
+    <p class="hint" style="margin: 10px 0 0;">For event admins. Guests: use the registration or sign-in link from your invitation.</p>
+  </div>
+
+  <div class="card" id="register-card" style="display:none;">
+    <div class="field-row">
+      <div class="field"><label for="reg-first">First name</label><input id="reg-first" /></div>
+      <div class="field"><label for="reg-last">Last name</label><input id="reg-last" /></div>
+    </div>
+    <div class="field">
+      <label for="reg-email">Email</label>
+      <input id="reg-email" type="email" placeholder="you@example.com" autocomplete="email" />
+    </div>
+    <div class="field">
+      <label for="reg-company">Company (optional)</label>
+      <input id="reg-company" />
+    </div>
+    <button class="btn" id="register-btn" style="width:100%;">Register</button>
+    <p class="hint" style="margin: 10px 0 0;">Already registered? Enter the same email to get a new sign-in link.</p>
+  </div>
+
+  <div class="card" id="closed-card" style="display:none;">
+    <p class="hint" style="margin:0;">Registration for this event is by invitation only. If you were invited, use the link from your invitation email.</p>
   </div>
 </div>
 
@@ -30,7 +52,18 @@
     notice.innerHTML = `<div class="notice ${kind}">${text}</div>`;
   }
 
-  async function requestMagicLink() {
+  function showDevLinkOrSuccess(data, successText) {
+    if (data.devLink) {
+      showNotice(
+        `Dev mode — no email sent. <a href="${data.devLink}">Click here to continue</a>.`,
+        "warn",
+      );
+    } else {
+      showNotice(successText, "success");
+    }
+  }
+
+  async function requestAdminMagicLink() {
     const email = document.getElementById("email").value.trim();
     if (!email) return showNotice("Enter an email address.", "error");
 
@@ -39,25 +72,15 @@
     btn.textContent = "Sending…";
 
     try {
-      // No eventId on this generic login page — the API tries an admin
-      // match first, and falls back silently either way (never reveals
-      // whether the email matched, per the auth route's design).
+      // No eventId here — this form only ever matches admin_memberships
+      // (see auth.ts). Guests use the event-scoped registration form below.
       const res = await fetch(`${API_BASE_URL}/auth/magic-link`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
       const data = await res.json();
-
-      if (data.devLink) {
-        // Local dev only — no email provider configured yet.
-        showNotice(
-          `Dev mode — no email sent. <a href="${data.devLink}">Click here to continue</a>.`,
-          "warn",
-        );
-      } else {
-        showNotice("Check your email for a sign-in link.", "success");
-      }
+      showDevLinkOrSuccess(data, "Check your email for a sign-in link.");
     } catch (err) {
       showNotice("Something went wrong. Try again.", "error");
     } finally {
@@ -66,10 +89,66 @@
     }
   }
 
+  async function submitRegistration(eventId) {
+    const firstName = document.getElementById("reg-first").value.trim();
+    const lastName = document.getElementById("reg-last").value.trim();
+    const email = document.getElementById("reg-email").value.trim();
+    const companyName = document.getElementById("reg-company").value.trim();
+
+    if (!firstName || !lastName || !email) {
+      return showNotice("First name, last name, and email are required.", "error");
+    }
+
+    const btn = document.getElementById("register-btn");
+    btn.disabled = true;
+    btn.textContent = "Submitting…";
+
+    try {
+      // Same endpoint whether this is a brand-new registration or a
+      // returning attendee who lost their link — the response looks
+      // identical either way, on purpose.
+      const res = await fetch(`${API_BASE_URL}/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId, firstName, lastName, email, companyName }),
+      });
+      const data = await res.json();
+      showDevLinkOrSuccess(data, "Check your email — we've sent you a sign-in link.");
+    } catch (err) {
+      showNotice("Something went wrong. Try again.", "error");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Register";
+    }
+  }
+
+  async function setUpEventMode(eventId) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/events/${encodeURIComponent(eventId)}/public`);
+      if (!res.ok) throw new Error("event not found");
+      const event = await res.json();
+
+      document.getElementById("admin-signin-card").style.display = "none";
+      document.getElementById("heading").textContent = event.name;
+      document.getElementById("subheading").textContent = `${event.startDate} – ${event.endDate}`;
+
+      if (event.allowSelfRegistration) {
+        document.getElementById("register-card").style.display = "";
+        document.getElementById("register-btn").addEventListener("click", () =>
+          submitRegistration(eventId),
+        );
+      } else {
+        document.getElementById("closed-card").style.display = "";
+      }
+    } catch (err) {
+      showNotice("That event link isn't valid.", "error");
+    }
+  }
+
   async function verifyFromUrl() {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
-    if (!token) return;
+    if (!token) return false;
 
     showNotice("Signing you in…", "warn");
     try {
@@ -85,14 +164,21 @@
     } catch (err) {
       showNotice("That link is invalid or expired. Request a new one below.", "error");
     }
+    return true;
   }
 
-  document.getElementById("submit-btn").addEventListener("click", requestMagicLink);
+  document.getElementById("submit-btn").addEventListener("click", requestAdminMagicLink);
   document.getElementById("email").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") requestMagicLink();
+    if (e.key === "Enter") requestAdminMagicLink();
   });
 
-  verifyFromUrl();
+  (async () => {
+    const handledToken = await verifyFromUrl();
+    if (handledToken) return;
+
+    const eventId = new URLSearchParams(window.location.search).get("event");
+    if (eventId) await setUpEventMode(eventId);
+  })();
 </script>
 </body>
 </html>
