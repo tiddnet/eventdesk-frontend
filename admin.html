@@ -10,10 +10,24 @@
 <div class="shell wide">
   <h1>Admin dashboard</h1>
   <p class="hint">
-    Event ID:
-    <input id="event-id" value="evt1" style="width: 120px; padding: 4px 8px; font-size: 12px;" />
-    <button class="btn ghost" id="load-event" style="padding: 4px 10px; font-size: 12px;">Load</button>
+    Event:
+    <select id="event-select" style="padding: 4px 8px; font-size: 12px;"></select>
+    <button class="btn ghost" id="new-event-toggle" style="padding: 4px 10px; font-size: 12px;">+ New event</button>
   </p>
+
+  <div class="card" id="new-event-card" style="display:none;">
+    <h2>Create event</h2>
+    <div class="field-row">
+      <div class="field"><label>Name</label><input id="ev-name" placeholder="Annual Dealer Summit 2028" /></div>
+      <div class="field"><label>Master billing name</label><input id="ev-billing-name" placeholder="M&amp;K Truck Centers" /></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Start date</label><input id="ev-start" type="date" /></div>
+      <div class="field"><label>End date</label><input id="ev-end" type="date" /></div>
+    </div>
+    <button class="btn" id="create-event-btn">Create</button>
+    <button class="btn ghost" id="cancel-new-event">Cancel</button>
+  </div>
 
   <div id="notice"></div>
 
@@ -131,8 +145,54 @@
   }
 
   function eventId() {
-    return document.getElementById("event-id").value.trim();
+    return document.getElementById("event-select").value;
   }
+
+  async function loadEventList(selectId) {
+    const res = await api("/events");
+    const events = await res.json();
+    const select = document.getElementById("event-select");
+    select.innerHTML = events
+      .map((e) => `<option value="${e.id}">${e.name}</option>`)
+      .join("");
+    if (selectId) select.value = selectId;
+    return events;
+  }
+
+  document.getElementById("event-select").addEventListener("change", loadAll);
+
+  document.getElementById("new-event-toggle").addEventListener("click", () => {
+    document.getElementById("new-event-card").style.display = "";
+  });
+  document.getElementById("cancel-new-event").addEventListener("click", () => {
+    document.getElementById("new-event-card").style.display = "none";
+  });
+
+  document.getElementById("create-event-btn").addEventListener("click", async () => {
+    const name = document.getElementById("ev-name").value.trim();
+    const masterBillingName = document.getElementById("ev-billing-name").value.trim();
+    const startDate = document.getElementById("ev-start").value;
+    const endDate = document.getElementById("ev-end").value;
+
+    if (!name || !masterBillingName || !startDate || !endDate) {
+      return showNotice("Name, master billing name, start date, and end date are all required.", "error");
+    }
+
+    const res = await api("/events", {
+      method: "POST",
+      body: JSON.stringify({ name, masterBillingName, startDate, endDate }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      showNotice(`Event "${name}" created.`, "success");
+      document.getElementById("new-event-card").style.display = "none";
+      await loadEventList(data.id);
+      loadAll();
+    } else {
+      const err = await res.json();
+      showNotice(err.error ?? "Could not create event.", "error");
+    }
+  });
 
   async function loadChanges() {
     const res = await api(`/events/${eventId()}/changes/pending`);
@@ -460,9 +520,10 @@
     loadSubEvents();
   }
 
-  document.getElementById("load-event").addEventListener("click", loadAll);
-
-  loadAll();
+  (async () => {
+    await loadEventList();
+    loadAll();
+  })();
 </script>
 </body>
 </html>
