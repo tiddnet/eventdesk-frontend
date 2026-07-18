@@ -9,7 +9,7 @@
 <body>
 <div class="shell">
   <h1>Platform admin</h1>
-  <p class="hint">Create and view organizations (tenants). No access to any organization's own events or attendees — that's deliberate (ADR 0005).</p>
+  <p class="hint">Create and view organizations (tenants), see a read-only event summary (names, dates, attendee counts — never the roster), and resend an admin's sign-in link. No access to any attendee's name, email, or other guest-facing data — that boundary is deliberate (ADR 0005, ADR 0016).</p>
 
   <div id="notice"></div>
 
@@ -25,7 +25,7 @@
   <div class="card">
     <h2>Organizations</h2>
     <table>
-      <thead><tr><th>Name</th><th>Status</th><th>Events</th><th>Created</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Admin(s)</th><th>Status</th><th>Events</th><th>Created</th><th></th></tr></thead>
       <tbody id="orgs-body"></tbody>
     </table>
   </div>
@@ -60,6 +60,10 @@
     return res;
   }
 
+  // ADR 0016 — each org's admin(s) surfaced inline (tenant metadata, not
+  // guest data); a "View events" toggle lazy-loads a read-only summary
+  // panel (event name/dates/attendee *count* only — never the roster)
+  // rather than navigating anywhere or minting a session for that org.
   async function loadOrgs() {
     const res = await api("/organizations");
     const rows = await res.json();
@@ -68,8 +72,19 @@
         (o) => `
       <tr>
         <td>${o.name}</td>
+        <td>
+          ${o.admins
+            .map(
+              (a) => `<div style="margin-bottom:2px;">${a.email} <span class="badge">${a.role}</span>
+                <button class="btn ghost resend-link-btn" data-org="${o.id}" data-membership="${a.id}" data-email="${a.email}" style="padding:1px 6px; font-size:10px;">Resend link</button></div>`,
+            )
+            .join("") || `<span class="hint" style="margin:0;">none</span>`}
+        </td>
         <td><span class="badge ${o.status === "suspended" ? "vip" : ""}">${o.status}</span></td>
-        <td>${o.eventCount}</td>
+        <td>
+          ${o.eventCount}
+          <button class="btn ghost view-events-btn" data-org="${o.id}" style="padding:2px 8px; font-size:11px; margin-left:6px;">View</button>
+        </td>
         <td>${new Date(o.createdAt).toLocaleDateString()}</td>
         <td>
           <button class="btn ghost suspend-btn" data-org="${o.id}" data-status="${o.status}" style="padding:4px 8px; font-size:11px;">
@@ -79,9 +94,52 @@
             Delete
           </button>
         </td>
-      </tr>`,
+      </tr>
+      <tr id="events-panel-${o.id}" style="display:none;"><td colspan="6" style="background:var(--bg);"></td></tr>`,
       )
       .join("");
+
+    document.querySelectorAll(".resend-link-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const res = await api(`/organizations/${btn.dataset.org}/admins/${btn.dataset.membership}/resend-link`, {
+          method: "POST",
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showNotice(
+            data.devLink
+              ? `Dev mode — no email sent: <a href="${data.devLink}">${btn.dataset.email}'s sign-in link</a>.`
+              : `Sign-in link resent to ${btn.dataset.email}.`,
+            "success",
+          );
+        } else {
+          showNotice(data.error ?? "Could not resend link.", "error");
+        }
+      });
+    });
+
+    document.querySelectorAll(".view-events-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const panel = document.getElementById(`events-panel-${btn.dataset.org}`);
+        const isOpen = panel.style.display !== "none";
+        if (isOpen) {
+          panel.style.display = "none";
+          btn.textContent = "View";
+          return;
+        }
+        panel.style.display = "";
+        btn.textContent = "Hide";
+        const cell = panel.querySelector("td");
+        cell.innerHTML = `<p class="hint" style="margin:8px 0;">Loading…</p>`;
+        const res = await api(`/organizations/${btn.dataset.org}/events`);
+        const evs = await res.json();
+        cell.innerHTML = evs.length
+          ? `<table style="margin:8px 0;"><thead><tr><th>Event</th><th>Dates</th><th>Attendees</th></tr></thead><tbody>
+              ${evs.map((e) => `<tr><td>${e.name}</td><td>${e.startDate} – ${e.endDate}</td><td>${e.attendeeCount}</td></tr>`).join("")}
+             </tbody></table>`
+          : `<p class="hint" style="margin:8px 0;">No events yet.</p>`;
+      });
+    });
 
     document.querySelectorAll(".suspend-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
