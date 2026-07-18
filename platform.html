@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EventDesk — Platform</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="shell">
+  <h1>Platform admin</h1>
+  <p class="hint">Create and view organizations (tenants). No access to any organization's own events or attendees — that's deliberate (ADR 0005).</p>
+
+  <div id="notice"></div>
+
+  <div class="card">
+    <h2>Create organization</h2>
+    <div class="field-row">
+      <div class="field"><label for="org-name">Company name</label><input id="org-name" placeholder="Acme Trucking" /></div>
+      <div class="field"><label for="org-admin-email">First admin's email</label><input id="org-admin-email" type="email" placeholder="admin@acmetrucking.com" /></div>
+    </div>
+    <button class="btn" id="create-org-btn" style="width:100%;">Create organization</button>
+  </div>
+
+  <div class="card">
+    <h2>Organizations</h2>
+    <table>
+      <thead><tr><th>Name</th><th>Created</th></tr></thead>
+      <tbody id="orgs-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+  const session = localStorage.getItem("eventdesk_session");
+  if (!session || localStorage.getItem("eventdesk_role") !== "platform_admin") {
+    window.location.href = "index.html";
+  }
+
+  const notice = document.getElementById("notice");
+  function showNotice(text, kind) {
+    notice.innerHTML = `<div class="notice ${kind}">${text}</div>`;
+  }
+
+  async function api(path, options = {}) {
+    const res = await fetch(`${API_BASE_URL}/platform${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session}`,
+        ...(options.headers || {}),
+      },
+    });
+    if (res.status === 401) {
+      localStorage.clear();
+      window.location.href = "index.html";
+      throw new Error("session expired");
+    }
+    return res;
+  }
+
+  async function loadOrgs() {
+    const res = await api("/organizations");
+    const rows = await res.json();
+    document.getElementById("orgs-body").innerHTML = rows
+      .map(
+        (o) => `
+      <tr>
+        <td>${o.name}</td>
+        <td>${new Date(o.createdAt).toLocaleDateString()}</td>
+      </tr>`,
+      )
+      .join("");
+  }
+
+  document.getElementById("create-org-btn").addEventListener("click", async () => {
+    const name = document.getElementById("org-name").value.trim();
+    const adminEmail = document.getElementById("org-admin-email").value.trim();
+    if (!name || !adminEmail) {
+      return showNotice("Company name and first admin email are both required.", "error");
+    }
+
+    const btn = document.getElementById("create-org-btn");
+    btn.disabled = true;
+    btn.textContent = "Creating…";
+
+    try {
+      const res = await api("/organizations", {
+        method: "POST",
+        body: JSON.stringify({ name, adminEmail }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showNotice(
+          data.devLink
+            ? `"${name}" created. Dev mode — no email sent to the new admin: <a href="${data.devLink}">their sign-in link</a>.`
+            : `"${name}" created — an invite was sent to ${adminEmail}.`,
+          "success",
+        );
+        document.getElementById("org-name").value = "";
+        document.getElementById("org-admin-email").value = "";
+        loadOrgs();
+      } else {
+        showNotice(data.error ?? "Could not create organization.", "error");
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Create organization";
+    }
+  });
+
+  loadOrgs();
+</script>
+</body>
+</html>
