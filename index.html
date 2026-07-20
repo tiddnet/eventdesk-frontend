@@ -84,6 +84,14 @@
         `Dev mode — no email sent. <a href="${data.devLink}">Click here to continue</a>.`,
         "warn",
       );
+    } else if (data.emailDelivered === false) {
+      // ADR 0023 — Resend was configured but rejected the send (e.g. an
+      // unverified-domain restriction, a bad address). The underlying
+      // request already succeeded; only the notification failed.
+      showNotice(
+        "Something happened, but the email couldn't be sent. Try requesting a new link in a moment.",
+        "error",
+      );
     } else {
       showNotice(successText, "success");
     }

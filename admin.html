@@ -174,7 +174,10 @@
     <p class="hint">Column headers — edit to match the hotel's template.</p>
     <div class="field-row">
       <div class="field"><label for="lbl-company">Company</label><input id="lbl-company" value="Company" /></div>
+      <div class="field"><label for="lbl-firstname">First Name</label><input id="lbl-firstname" value="First Name" /></div>
+      <div class="field"><label for="lbl-lastname">Last Name</label><input id="lbl-lastname" value="Last Name" /></div>
       <div class="field"><label for="lbl-checkin">Check-in</label><input id="lbl-checkin" value="Check-in" /></div>
+      <div class="field"><label for="lbl-checkout">Check-out</label><input id="lbl-checkout" value="Check-out" /></div>
     </div>
     <button class="btn ghost" id="save-labels">Save labels</button>
     <button class="btn" id="export-csv">Export CSV</button>
@@ -524,11 +527,16 @@
         const res = await api(`/attendees/${btn.dataset.attendee}/resend-invite`, { method: "POST" });
         const data = await res.json();
         if (res.ok) {
+          // ADR 0023 — emailDelivered:false means Resend was configured
+          // but rejected the send; the mint-a-new-link work already
+          // happened, only the notification failed.
           showNotice(
             data.devLink
               ? `Dev mode — no email sent: <a href="${escapeHtml(data.devLink)}">sign-in link</a>.`
-              : "Sign-in link resent.",
-            "success",
+              : data.emailDelivered === false
+                ? "Created, but the invite email couldn't be sent — try the resend button again."
+                : "Sign-in link resent.",
+            data.emailDelivered === false ? "error" : "success",
           );
         } else {
           showNotice(data.error ?? "Could not resend invite.", "error");
@@ -683,11 +691,15 @@
     const res = await api("/invite-admin", { method: "POST", body: JSON.stringify({ email, role }) });
     if (res.ok) {
       const data = await res.json();
+      // ADR 0023 — the membership row was created either way; only the
+      // notification email can fail.
       showNotice(
         data.devLink
           ? `Invited. Dev mode — no email sent: <a href="${data.devLink}">sign-in link</a>.`
-          : "Invite sent.",
-        "success",
+          : data.emailDelivered === false
+            ? "Invited, but the invite email couldn't be sent — they can request a sign-in link themselves from the sign-in page."
+            : "Invite sent.",
+        data.emailDelivered === false ? "error" : "success",
       );
       document.getElementById("invite-email").value = "";
       loadAdmins();
@@ -757,11 +769,16 @@
     });
     if (res.ok) {
       const data = await res.json();
+      // ADR 0023 — the attendee row was created either way; only the
+      // invite email can fail, and the roster's own "Invite link"
+      // (resend-invite) button is the recovery path.
       showNotice(
         data.devLink
           ? `Attendee added. Dev mode — no email sent: <a href="${data.devLink}">sign-in link</a>.`
-          : "Attendee added — invite sent.",
-        "success",
+          : data.emailDelivered === false
+            ? "Attendee added, but the invite email couldn't be sent — use the invite-link button in the roster to try again."
+            : "Attendee added — invite sent.",
+        data.emailDelivered === false ? "error" : "success",
       );
       resetAttendeeForm();
       loadRoster();
@@ -846,13 +863,36 @@
     }
   });
 
+  const HOTEL_LABEL_FIELDS = [
+    ["company", "lbl-company", "Company"],
+    ["firstName", "lbl-firstname", "First Name"],
+    ["lastName", "lbl-lastname", "Last Name"],
+    ["checkIn", "lbl-checkin", "Check-in"],
+    ["checkOut", "lbl-checkout", "Check-out"],
+  ];
+
+  // Backend supports all 5 export columns (worker/db/schema.ts
+  // hotelExportColumnLabels) but this card only ever exposed 2 and never
+  // loaded previously-saved values on open (gap-audit finding J2) —
+  // GET /events already returns hotelExportColumnLabels per event, this
+  // just reads it instead of leaving the inputs at their hardcoded
+  // placeholder defaults every time the page loads.
+  async function loadHotelExportLabels() {
+    const res = await api("/events");
+    const events = await res.json();
+    const event = events.find((e) => e.id === eventId());
+    const labels = event?.hotelExportColumnLabels ?? {};
+    for (const [key, id, fallback] of HOTEL_LABEL_FIELDS) {
+      document.getElementById(id).value = labels[key] ?? fallback;
+    }
+  }
+
   document.getElementById("save-labels").addEventListener("click", async () => {
     const res = await api(`/events/${eventId()}/hotel-export-labels`, {
       method: "PATCH",
-      body: JSON.stringify({
-        company: document.getElementById("lbl-company").value,
-        checkIn: document.getElementById("lbl-checkin").value,
-      }),
+      body: JSON.stringify(
+        Object.fromEntries(HOTEL_LABEL_FIELDS.map(([key, id]) => [key, document.getElementById(id).value])),
+      ),
     });
     if (res.ok) showNotice("Column labels saved.", "success");
   });
@@ -947,6 +987,7 @@
     loadRequests();
     loadRoster();
     loadSubEvents();
+    loadHotelExportLabels();
   }
 
   (async () => {
