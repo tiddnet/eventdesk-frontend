@@ -222,6 +222,20 @@
       <!-- ============================== Event settings ============================== -->
       <div class="page" id="page-event-settings" style="display:none;">
         <div class="card">
+          <h2>Event details</h2>
+          <p class="hint">Name, dates, and billing name — fixable after the fact, whether it's a real change or a typo when the event was first created.</p>
+          <div class="field-row">
+            <div class="field"><label for="edit-ev-name">Name</label><input id="edit-ev-name" /></div>
+            <div class="field"><label for="edit-ev-billing-name">Master billing name</label><input id="edit-ev-billing-name" /></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="edit-ev-start">Start date</label><input id="edit-ev-start" type="date" /></div>
+            <div class="field"><label for="edit-ev-end">End date</label><input id="edit-ev-end" type="date" /></div>
+          </div>
+          <button class="btn ghost" id="save-event-details">Save changes</button>
+        </div>
+
+        <div class="card">
           <h2>Registration</h2>
           <label style="font-size: 12.5px;">
             <input type="checkbox" id="allow-self-registration" /> Allow public self-registration for this event
@@ -965,6 +979,46 @@
     }
   });
 
+  async function loadEventDetails() {
+    const res = await api("/events");
+    const events = await res.json();
+    const event = events.find((e) => e.id === eventId());
+    if (!event) return;
+    document.getElementById("edit-ev-name").value = event.name;
+    document.getElementById("edit-ev-billing-name").value = event.masterBillingName;
+    document.getElementById("edit-ev-start").value = event.startDate;
+    document.getElementById("edit-ev-end").value = event.endDate;
+  }
+
+  document.getElementById("save-event-details").addEventListener("click", async () => {
+    const name = document.getElementById("edit-ev-name").value.trim();
+    const masterBillingName = document.getElementById("edit-ev-billing-name").value.trim();
+    const startDate = document.getElementById("edit-ev-start").value;
+    const endDate = document.getElementById("edit-ev-end").value;
+
+    if (!name || !masterBillingName || !startDate || !endDate) {
+      return showNotice("Name, master billing name, start date, and end date are all required.", "error");
+    }
+    if (startDate > endDate) {
+      return showNotice("Start date must be on or before the end date.", "error");
+    }
+
+    const res = await api(`/events/${eventId()}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name, masterBillingName, startDate, endDate }),
+    });
+    if (res.ok) {
+      showNotice("Event details saved.", "success");
+      // Name/dates are also shown on the Events list and the active-event
+      // banner — loadEventList() already refreshes both, not just its own
+      // page, so this doesn't leave them stale until the next full load.
+      await loadEventList();
+    } else {
+      const err = await res.json();
+      showNotice(err.error ?? "Could not save event details.", "error");
+    }
+  });
+
   async function loadRegistrationSettings() {
     // Public endpoint (ADR 0004) — deliberately not routed through api(),
     // which always prefixes /admin and attaches the admin session; this
@@ -1246,6 +1300,7 @@
     } else if (page === "hotel") {
       loadHotelExportLabels();
     } else if (page === "event-settings") {
+      loadEventDetails();
       loadRegistrationSettings();
     } else if (page === "events") {
       loadEventList();
