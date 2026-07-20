@@ -11,184 +11,265 @@
 <body>
 <div class="shell wide">
   <h1>Admin dashboard</h1>
-  <p class="hint">
-    Event:
-    <select id="event-select" style="padding: 4px 8px; font-size: 12px;"></select>
-    <button class="btn ghost" id="new-event-toggle" style="padding: 4px 10px; font-size: 12px;">+ New event</button>
-  </p>
-
-  <div class="card" id="zero-events-notice" style="display:none;">
-    <h2>Create your first event to get started</h2>
-    <p class="hint">Everything below — roster, hotel export, sub-events — is scoped to an event. Click "+ New event" above to create one.</p>
-  </div>
-
-  <div class="card" id="new-event-card" style="display:none;">
-    <h2>Create event</h2>
-    <div class="field-row">
-      <div class="field"><label>Name</label><input id="ev-name" placeholder="Annual Dealer Summit 2028" /></div>
-      <div class="field"><label>Master billing name</label><input id="ev-billing-name" placeholder="M&amp;K Truck Centers" /></div>
-    </div>
-    <div class="field-row">
-      <div class="field"><label>Start date</label><input id="ev-start" type="date" /></div>
-      <div class="field"><label>End date</label><input id="ev-end" type="date" /></div>
-    </div>
-    <button class="btn" id="create-event-btn">Create</button>
-    <button class="btn ghost" id="cancel-new-event">Cancel</button>
-  </div>
-
   <div id="notice"></div>
 
-  <div class="card">
-    <h2>Branding</h2>
-    <p class="hint">Organization-wide — applies to every guest-facing page across all your events.</p>
-    <div class="field-row">
-      <div class="field"><label for="brand-display-name">Display name</label><input id="brand-display-name" placeholder="Defaults to event name" /></div>
-      <div class="field"><label for="brand-logo-url">Logo URL</label><input id="brand-logo-url" placeholder="https://…" /></div>
-    </div>
-    <div class="field-row">
-      <div class="field"><label for="brand-primary-color">Primary color</label><input id="brand-primary-color" type="color" /></div>
-      <div class="field"><label for="brand-accent-color">Accent color</label><input id="brand-accent-color" type="color" /></div>
-    </div>
-    <button class="btn ghost" id="save-branding">Save branding</button>
-  </div>
+  <!-- ADR 0028 — left nav replaces the old single-scroll, 13-card page.
+       Events is its own destination (not an always-visible dropdown) so
+       switching events is a deliberate action with room to sort old ones
+       out of the way, rather than chrome competing for space above every
+       other section. Organization is the one item not scoped to whichever
+       event is active — visually separated by the nav divider below. -->
+  <div class="admin-shell">
+    <nav class="admin-nav">
+      <button class="nav-link" data-page="events">Events</button>
+      <button class="nav-link" data-page="overview">Overview</button>
+      <button class="nav-link" data-page="attendees">Attendees</button>
+      <button class="nav-link" data-page="subevents">Sub-events</button>
+      <button class="nav-link" data-page="hotel">Hotel</button>
+      <button class="nav-link" data-page="event-settings">Event settings</button>
+      <hr class="nav-divider" />
+      <button class="nav-link" data-page="organization">Organization</button>
+    </nav>
 
-  <div class="card">
-    <h2>Approval routing</h2>
-    <p class="hint">Organization-wide. When on, a guest's change waits in "Needs sign-off" instead of applying immediately.</p>
-    <label style="font-size: 12.5px; display:block; margin-bottom: 6px;">
-      <input type="checkbox" id="approval-dietary" /> Dietary changes require approval
-    </label>
-    <label style="font-size: 12.5px; display:block; margin-bottom: 10px;">
-      <input type="checkbox" id="approval-flight" /> Flight changes require approval
-    </label>
-  </div>
+    <main class="admin-main">
+      <p class="hint" id="active-event-banner" style="margin: 0 0 16px;"></p>
 
-  <div class="card">
-    <h2>Admins</h2>
-    <table style="margin-bottom: 14px;">
-      <thead><tr><th>Email</th><th>Role</th><th></th></tr></thead>
-      <tbody id="admins-body"></tbody>
-    </table>
-    <div class="field-row">
-      <div class="field"><label for="invite-email">Email</label><input id="invite-email" type="email" /></div>
-      <div class="field">
-        <label for="invite-role">Role</label>
-        <select id="invite-role"><option value="admin">Admin</option><option value="editor">Editor</option></select>
+      <!-- ============================== Events ============================== -->
+      <div class="page" id="page-events">
+        <div class="card" id="zero-events-notice" style="display:none;">
+          <h2>Create your first event to get started</h2>
+          <p class="hint">Everything else — roster, hotel export, sub-events — is scoped to an event. Create one below.</p>
+        </div>
+
+        <div class="card">
+          <h2>Events</h2>
+          <table style="margin-bottom: 14px;">
+            <thead><tr><th>Name</th><th>Dates</th><th></th></tr></thead>
+            <tbody id="upcoming-events-body"></tbody>
+          </table>
+          <details id="past-events-details" style="margin-bottom: 14px; display:none;">
+            <summary class="hint" style="cursor:pointer;">Past events</summary>
+            <table style="margin-top: 10px;">
+              <thead><tr><th>Name</th><th>Dates</th><th></th></tr></thead>
+              <tbody id="past-events-body"></tbody>
+            </table>
+          </details>
+          <button class="btn ghost" id="new-event-toggle">+ New event</button>
+        </div>
+
+        <div class="card" id="new-event-card" style="display:none;">
+          <h2>Create event</h2>
+          <div class="field-row">
+            <div class="field"><label>Name</label><input id="ev-name" placeholder="Annual Dealer Summit 2028" /></div>
+            <div class="field"><label>Master billing name</label><input id="ev-billing-name" placeholder="M&amp;K Truck Centers" /></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Start date</label><input id="ev-start" type="date" /></div>
+            <div class="field"><label>End date</label><input id="ev-end" type="date" /></div>
+          </div>
+          <button class="btn" id="create-event-btn">Create</button>
+          <button class="btn ghost" id="cancel-new-event">Cancel</button>
+        </div>
       </div>
-    </div>
-    <button class="btn ghost" id="invite-admin-btn">Invite</button>
-  </div>
 
-  <div class="card">
-    <h2>Registration</h2>
-    <label style="font-size: 12.5px;">
-      <input type="checkbox" id="allow-self-registration" /> Allow public self-registration for this event
-    </label>
-    <button class="btn ghost" id="save-registration-setting" style="margin-left: 12px; padding: 4px 10px; font-size: 12px;">Save</button>
-    <p class="hint" style="margin: 10px 0 0;">
-      Public registration link: <code id="registration-link"></code>
-      <button class="btn ghost" id="copy-registration-link" style="padding: 2px 8px; font-size: 11px;">Copy</button>
-    </p>
-  </div>
+      <!-- ============================== Overview ============================== -->
+      <div class="page" id="page-overview" style="display:none;">
+        <div class="card-row">
+          <div class="card">
+            <h2>Activity — dietary &amp; meal changes</h2>
+            <table>
+              <thead><tr><th>Attendee</th><th>Change</th><th>By</th><th>When</th></tr></thead>
+              <tbody id="overview-dietary-body"></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <h2>Flight info updates</h2>
+            <table>
+              <thead><tr><th>Attendee</th><th>Change</th><th>By</th><th>When</th></tr></thead>
+              <tbody id="overview-flight-body"></tbody>
+            </table>
+          </div>
+        </div>
 
-  <div class="card">
-    <h2>Event notes</h2>
-    <p class="hint">Internal only — general notes about this event, not any one attendee.</p>
-    <div id="event-notes-list" style="margin-bottom: 10px;"></div>
-    <div class="field-row">
-      <div class="field" style="grid-column: 1 / -1;"><input id="new-event-note" placeholder="e.g. Hotel contact is Jane, contract signed 3/1" /></div>
-    </div>
-    <button class="btn ghost" id="add-event-note">Add note</button>
-  </div>
-
-  <div class="card">
-    <h2>Needs sign-off</h2>
-    <p class="hint">Guest-submitted changes only — anything you enter directly applies immediately.</p>
-    <table>
-      <thead><tr><th>Attendee</th><th>Field</th><th>Requested change</th><th></th></tr></thead>
-      <tbody id="changes-body"></tbody>
-    </table>
-  </div>
-
-  <div class="card">
-    <h2>Recent activity</h2>
-    <p class="hint">Changes that already took effect — self-applied by a guest, admin-entered, or approved after review.</p>
-    <table>
-      <thead><tr><th>Attendee</th><th>Field</th><th>Change</th><th>By</th><th>When</th></tr></thead>
-      <tbody id="activity-feed-body"></tbody>
-    </table>
-  </div>
-
-  <div class="card">
-    <h2>Hotel requests — awaiting booking</h2>
-    <table>
-      <thead><tr><th>Attendee</th><th>Requested</th><th>Note</th><th></th></tr></thead>
-      <tbody id="requests-body"></tbody>
-    </table>
-  </div>
-
-  <div class="card">
-    <h2 id="attendee-form-heading">Attendee roster</h2>
-    <div class="field-row" style="margin-bottom: 12px;">
-      <div class="field"><label>First name</label><input id="new-first" /></div>
-      <div class="field"><label>Last name</label><input id="new-last" /></div>
-      <div class="field"><label>Email</label><input id="new-email" /></div>
-      <div class="field">
-        <label>Affiliation</label>
-        <select id="new-affiliation"><option value="internal">Internal</option><option value="external">External</option></select>
+        <div class="card-row">
+          <div class="card">
+            <h2>Admin invites — not yet claimed</h2>
+            <p class="hint">Company-wide, not just this event.</p>
+            <table>
+              <thead><tr><th>Email</th><th>Invited</th><th></th></tr></thead>
+              <tbody id="overview-unclaimed-admins-body"></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <h2>Event notes</h2>
+            <p class="hint">Internal only — general notes about this event, not any one attendee.</p>
+            <div id="event-notes-list" style="margin-bottom: 10px;"></div>
+            <div class="field-row">
+              <div class="field" style="grid-column: 1 / -1;"><input id="new-event-note" placeholder="e.g. Hotel contact is Jane, contract signed 3/1" /></div>
+            </div>
+            <button class="btn ghost" id="add-event-note">Add note</button>
+          </div>
+        </div>
       </div>
-    </div>
-    <div class="field-row" style="margin-bottom: 12px;">
-      <div class="field"><label>Company (if not billed to master)</label><input id="new-company" /></div>
-      <div class="field">
-        <label style="font-size: 12.5px; margin-top: 18px;"><input type="checkbox" id="new-billed-master" checked /> Billed to master account</label>
+
+      <!-- ============================== Attendees ============================== -->
+      <div class="page" id="page-attendees" style="display:none;">
+        <div class="card">
+          <h2 id="attendee-form-heading">Attendee roster</h2>
+          <div class="field-row" style="margin-bottom: 12px;">
+            <div class="field"><label>First name</label><input id="new-first" /></div>
+            <div class="field"><label>Last name</label><input id="new-last" /></div>
+            <div class="field"><label>Email</label><input id="new-email" /></div>
+            <div class="field">
+              <label>Affiliation</label>
+              <select id="new-affiliation"><option value="internal">Internal</option><option value="external">External</option></select>
+            </div>
+          </div>
+          <div class="field-row" style="margin-bottom: 12px;">
+            <div class="field"><label>Company (if not billed to master)</label><input id="new-company" /></div>
+            <div class="field">
+              <label style="font-size: 12.5px; margin-top: 18px;"><input type="checkbox" id="new-billed-master" checked /> Billed to master account</label>
+            </div>
+          </div>
+          <label style="font-size: 12.5px;"><input type="checkbox" id="new-vip" /> VIP</label>
+          <button class="btn" id="add-attendee" style="margin-left: 12px;">Add attendee</button>
+          <button class="btn ghost" id="cancel-edit-attendee" style="display:none;">Cancel edit</button>
+          <table style="margin-top: 14px;">
+            <thead><tr><th>Name</th><th>Affiliation</th><th>Source</th><th>Billing</th><th>Flight</th><th>Private note</th><th></th></tr></thead>
+            <tbody id="roster-body"></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <h2>Needs sign-off</h2>
+          <p class="hint">Guest-submitted changes only — anything you enter directly applies immediately.</p>
+          <table>
+            <thead><tr><th>Attendee</th><th>Field</th><th>Requested change</th><th></th></tr></thead>
+            <tbody id="changes-body"></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <h2>Recent activity</h2>
+          <p class="hint">Full history — changes that already took effect, every field type. See Overview for a dietary/flight-only glance.</p>
+          <table>
+            <thead><tr><th>Attendee</th><th>Field</th><th>Change</th><th>By</th><th>When</th></tr></thead>
+            <tbody id="activity-feed-body"></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <h2>Hotel requests — awaiting booking</h2>
+          <table>
+            <thead><tr><th>Attendee</th><th>Requested</th><th>Note</th><th></th></tr></thead>
+            <tbody id="requests-body"></tbody>
+          </table>
+        </div>
       </div>
-    </div>
-    <label style="font-size: 12.5px;"><input type="checkbox" id="new-vip" /> VIP</label>
-    <button class="btn" id="add-attendee" style="margin-left: 12px;">Add attendee</button>
-    <button class="btn ghost" id="cancel-edit-attendee" style="display:none;">Cancel edit</button>
-    <table style="margin-top: 14px;">
-      <thead><tr><th>Name</th><th>Affiliation</th><th>Source</th><th>Billing</th><th>Flight</th><th>Private note</th><th></th></tr></thead>
-      <tbody id="roster-body"></tbody>
-    </table>
-  </div>
 
-  <div class="card">
-    <h2>Sub-events</h2>
-    <div class="field-row" style="margin-bottom: 12px;">
-      <div class="field"><label>Name</label><input id="se-name" /></div>
-      <div class="field"><label>Location</label><input id="se-location" /></div>
-      <div class="field"><label>Starts</label><input id="se-starts" type="datetime-local" /></div>
-      <div class="field"><label>Ends</label><input id="se-ends" type="datetime-local" /></div>
-    </div>
-    <label style="font-size: 12.5px;"><input type="checkbox" id="se-auto-enroll" /> Auto-enroll new attendees</label>
-    <button class="btn" id="add-subevent" style="margin-left: 12px;">Create sub-event</button>
-    <table style="margin-top: 14px;">
-      <thead><tr><th>Name</th><th>When</th><th>Auto-enroll</th><th>Attendees</th><th>PDF</th><th></th></tr></thead>
-      <tbody id="subevents-body"></tbody>
-    </table>
-  </div>
+      <!-- ============================== Sub-events ============================== -->
+      <div class="page" id="page-subevents" style="display:none;">
+        <div class="card">
+          <h2>Sub-events</h2>
+          <div class="field-row" style="margin-bottom: 12px;">
+            <div class="field"><label>Name</label><input id="se-name" /></div>
+            <div class="field"><label>Location</label><input id="se-location" /></div>
+            <div class="field"><label>Starts</label><input id="se-starts" type="datetime-local" /></div>
+            <div class="field"><label>Ends</label><input id="se-ends" type="datetime-local" /></div>
+          </div>
+          <label style="font-size: 12.5px;"><input type="checkbox" id="se-auto-enroll" /> Auto-enroll new attendees</label>
+          <button class="btn" id="add-subevent" style="margin-left: 12px;">Create sub-event</button>
+          <table style="margin-top: 14px;">
+            <thead><tr><th>Name</th><th>When</th><th>Auto-enroll</th><th>Attendees</th><th>PDF</th><th></th></tr></thead>
+            <tbody id="subevents-body"></tbody>
+          </table>
+        </div>
+      </div>
 
-  <div class="card-row">
-    <div class="card">
-      <h2>Hotel export</h2>
-      <p class="hint">Column headers — edit to match the hotel's template.</p>
-      <div class="field"><label for="lbl-company">Company</label><input id="lbl-company" value="Company" /></div>
-      <div class="field"><label for="lbl-firstname">First Name</label><input id="lbl-firstname" value="First Name" /></div>
-      <div class="field"><label for="lbl-lastname">Last Name</label><input id="lbl-lastname" value="Last Name" /></div>
-      <div class="field"><label for="lbl-checkin">Check-in</label><input id="lbl-checkin" value="Check-in" /></div>
-      <div class="field"><label for="lbl-checkout">Check-out</label><input id="lbl-checkout" value="Check-out" /></div>
-      <button class="btn ghost" id="save-labels">Save labels</button>
-      <button class="btn" id="export-csv">Export CSV</button>
-    </div>
+      <!-- ============================== Hotel ============================== -->
+      <div class="page" id="page-hotel" style="display:none;">
+        <div class="card-row">
+          <div class="card">
+            <h2>Hotel export</h2>
+            <p class="hint">Column headers — edit to match the hotel's template.</p>
+            <div class="field"><label for="lbl-company">Company</label><input id="lbl-company" value="Company" /></div>
+            <div class="field"><label for="lbl-firstname">First Name</label><input id="lbl-firstname" value="First Name" /></div>
+            <div class="field"><label for="lbl-lastname">Last Name</label><input id="lbl-lastname" value="Last Name" /></div>
+            <div class="field"><label for="lbl-checkin">Check-in</label><input id="lbl-checkin" value="Check-in" /></div>
+            <div class="field"><label for="lbl-checkout">Check-out</label><input id="lbl-checkout" value="Check-out" /></div>
+            <button class="btn ghost" id="save-labels">Save labels</button>
+            <button class="btn" id="export-csv">Export CSV</button>
+          </div>
 
-    <div class="card">
-      <h2>Hotel import</h2>
-      <p class="hint">Upload the hotel's confirmation roster (Name, Check-in, Check-out, Confirmation Number).</p>
-      <input type="file" id="import-file" accept=".csv" />
-      <button class="btn" id="import-btn">Upload &amp; match</button>
-      <div id="import-results" style="margin-top: 14px;"></div>
-    </div>
+          <div class="card">
+            <h2>Hotel import</h2>
+            <p class="hint">Upload the hotel's confirmation roster (Name, Check-in, Check-out, Confirmation Number).</p>
+            <input type="file" id="import-file" accept=".csv" />
+            <button class="btn" id="import-btn">Upload &amp; match</button>
+            <div id="import-results" style="margin-top: 14px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================== Event settings ============================== -->
+      <div class="page" id="page-event-settings" style="display:none;">
+        <div class="card">
+          <h2>Registration</h2>
+          <label style="font-size: 12.5px;">
+            <input type="checkbox" id="allow-self-registration" /> Allow public self-registration for this event
+          </label>
+          <button class="btn ghost" id="save-registration-setting" style="margin-left: 12px; padding: 4px 10px; font-size: 12px;">Save</button>
+          <p class="hint" style="margin: 10px 0 0;">
+            Public registration link: <code id="registration-link"></code>
+            <button class="btn ghost" id="copy-registration-link" style="padding: 2px 8px; font-size: 11px;">Copy</button>
+          </p>
+        </div>
+      </div>
+
+      <!-- ============================== Organization ============================== -->
+      <div class="page" id="page-organization" style="display:none;">
+        <div class="card">
+          <h2>Branding</h2>
+          <p class="hint">Applies to every guest-facing page across all your events.</p>
+          <div class="field-row">
+            <div class="field"><label for="brand-display-name">Display name</label><input id="brand-display-name" placeholder="Defaults to event name" /></div>
+            <div class="field"><label for="brand-logo-url">Logo URL</label><input id="brand-logo-url" placeholder="https://…" /></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="brand-primary-color">Primary color</label><input id="brand-primary-color" type="color" /></div>
+            <div class="field"><label for="brand-accent-color">Accent color</label><input id="brand-accent-color" type="color" /></div>
+          </div>
+          <button class="btn ghost" id="save-branding">Save branding</button>
+        </div>
+
+        <div class="card">
+          <h2>Approval routing</h2>
+          <p class="hint">When on, a guest's change waits in "Needs sign-off" instead of applying immediately. Applies across all your events.</p>
+          <label style="font-size: 12.5px; display:block; margin-bottom: 6px;">
+            <input type="checkbox" id="approval-dietary" /> Dietary changes require approval
+          </label>
+          <label style="font-size: 12.5px; display:block; margin-bottom: 10px;">
+            <input type="checkbox" id="approval-flight" /> Flight changes require approval
+          </label>
+        </div>
+
+        <div class="card">
+          <h2>Admins</h2>
+          <table style="margin-bottom: 14px;">
+            <thead><tr><th>Email</th><th>Role</th><th>Last signed in</th><th></th></tr></thead>
+            <tbody id="admins-body"></tbody>
+          </table>
+          <div class="field-row">
+            <div class="field"><label for="invite-email">Email</label><input id="invite-email" type="email" /></div>
+            <div class="field">
+              <label for="invite-role">Role</label>
+              <select id="invite-role"><option value="admin">Admin</option><option value="editor">Editor</option></select>
+            </div>
+          </div>
+          <button class="btn ghost" id="invite-admin-btn">Invite</button>
+        </div>
+      </div>
+    </main>
   </div>
 </div>
 
@@ -221,22 +302,73 @@
     return res;
   }
 
+  // ADR 0028 — replaces the old <select id="event-select">. The active
+  // event is now app state (persisted so a refresh doesn't lose it), set
+  // by choosing a row on the Events page rather than an always-visible
+  // dropdown competing for space above every other section.
+  let activeEventId = localStorage.getItem("eventdesk_active_event") || "";
+  let allEvents = [];
+
   function eventId() {
-    return document.getElementById("event-select").value;
+    return activeEventId;
   }
 
-  async function loadEventList(selectId) {
+  function renderActiveEventBanner() {
+    const banner = document.getElementById("active-event-banner");
+    const ev = allEvents.find((e) => e.id === activeEventId);
+    if (!ev) {
+      banner.innerHTML = `<span class="hint">No event selected.</span>`;
+      return;
+    }
+    banner.innerHTML = `Event: <strong>${escapeHtml(ev.name)}</strong> <span class="hint" style="display:inline;">(${escapeHtml(ev.startDate)} – ${escapeHtml(ev.endDate)})</span> · <button class="btn ghost" id="switch-event-btn" style="padding:2px 8px; font-size:11px;">Switch</button>`;
+    document.getElementById("switch-event-btn").addEventListener("click", () => showPage("events"));
+  }
+
+  function setActiveEvent(id) {
+    activeEventId = id;
+    localStorage.setItem("eventdesk_active_event", id);
+    renderEventsPage();
+    renderActiveEventBanner();
+    loadPageData(currentPage);
+  }
+
+  async function loadEventList() {
     const res = await api("/events");
-    const events = await res.json();
-    const select = document.getElementById("event-select");
-    select.innerHTML = events
-      .map((e) => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}</option>`)
-      .join("");
-    if (selectId) select.value = selectId;
-    return events;
+    allEvents = await res.json();
+    renderEventsPage();
+    renderActiveEventBanner();
+    return allEvents;
   }
 
-  document.getElementById("event-select").addEventListener("change", loadAll);
+  // Sorts current/upcoming events above past ones (by end date) instead of
+  // one flat list — "sorted out of the way," not deleted or hidden
+  // (ADR 0028). Past events collapse under a <details> so they're a click
+  // away, not gone.
+  function renderEventsPage() {
+    const today = new Date().toISOString().slice(0, 10);
+    const upcoming = allEvents.filter((e) => e.endDate >= today).sort((a, b) => a.startDate.localeCompare(b.startDate));
+    const past = allEvents.filter((e) => e.endDate < today).sort((a, b) => b.endDate.localeCompare(a.endDate));
+
+    const row = (e) => `
+      <tr>
+        <td>${escapeHtml(e.name)} ${e.id === activeEventId ? '<span class="badge">active</span>' : ""}</td>
+        <td>${escapeHtml(e.startDate)} – ${escapeHtml(e.endDate)}</td>
+        <td><button class="btn ghost select-event-btn" data-id="${escapeHtml(e.id)}" style="padding:4px 8px; font-size:11px;">${e.id === activeEventId ? "Selected" : "Select"}</button></td>
+      </tr>`;
+
+    document.getElementById("upcoming-events-body").innerHTML = upcoming.length
+      ? upcoming.map(row).join("")
+      : `<tr><td colspan="3" class="hint">No upcoming events.</td></tr>`;
+    document.getElementById("past-events-body").innerHTML = past.map(row).join("");
+    document.getElementById("past-events-details").style.display = past.length ? "" : "none";
+
+    document.querySelectorAll(".select-event-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        setActiveEvent(btn.dataset.id);
+        showPage("overview");
+      });
+    });
+  }
 
   document.getElementById("new-event-toggle").addEventListener("click", () => {
     document.getElementById("new-event-card").style.display = "";
@@ -264,8 +396,9 @@
       showNotice(`Event "${escapeHtml(name)}" created.`, "success");
       document.getElementById("new-event-card").style.display = "none";
       document.getElementById("zero-events-notice").style.display = "none";
-      await loadEventList(data.id);
-      loadAll();
+      await loadEventList();
+      setActiveEvent(data.id);
+      showPage("overview");
     } else {
       const err = await res.json();
       showNotice(err.error ?? "Could not create event.", "error");
@@ -344,11 +477,9 @@
     });
   }
 
-  async function loadActivityFeed() {
-    const res = await api(`/events/${eventId()}/activity-feed`);
-    const rows = await res.json();
-    document.getElementById("activity-feed-body").innerHTML = rows.length === 0
-      ? `<tr><td colspan="5" class="hint">No activity yet.</td></tr>`
+  function renderActivityRows(targetId, rows) {
+    document.getElementById(targetId).innerHTML = rows.length === 0
+      ? `<tr><td colspan="${targetId === "activity-feed-body" ? 5 : 4}" class="hint">Nothing yet.</td></tr>`
       : rows
       .map((r) => {
         const val = JSON.parse(r.newValue);
@@ -356,16 +487,34 @@
           .map(([k, v]) => `${escapeHtml(k)}: ${escapeHtml(v) || "—"}`)
           .join(", ");
         const byLabel = r.changedByRole === "admin" ? "Admin" : r.status === "approved" ? "Guest (approved)" : "Guest";
+        const fieldCell = targetId === "activity-feed-body" ? `<td>${escapeHtml(r.fieldType)}</td>` : "";
         return `
       <tr>
         <td>${escapeHtml(r.firstName)} ${escapeHtml(r.lastName)} ${r.isVip ? '<span class="badge vip">VIP</span>' : ""}</td>
-        <td>${escapeHtml(r.fieldType)}</td>
+        ${fieldCell}
         <td>${summary}</td>
         <td>${byLabel}</td>
         <td>${new Date(r.createdAt).toLocaleString()}</td>
       </tr>`;
       })
       .join("");
+  }
+
+  // Full unfiltered history (every field type) — the complete record,
+  // lives with the rest of Attendees. Overview's two tiles below are a
+  // filtered glance over the same endpoint's response, not a separate
+  // data source (ADR 0028).
+  async function loadActivityFeed() {
+    const res = await api(`/events/${eventId()}/activity-feed`);
+    const rows = await res.json();
+    renderActivityRows("activity-feed-body", rows);
+  }
+
+  async function loadOverviewActivity() {
+    const res = await api(`/events/${eventId()}/activity-feed`);
+    const rows = await res.json();
+    renderActivityRows("overview-dietary-body", rows.filter((r) => r.fieldType === "dietary_preference"));
+    renderActivityRows("overview-flight-body", rows.filter((r) => r.fieldType === "flight_info"));
   }
 
   async function loadRequests() {
@@ -592,8 +741,7 @@
 
   document.getElementById("cancel-edit-attendee").addEventListener("click", resetAttendeeForm);
 
-  // ADR 0009 — org-level, not event-scoped, so this loads once at startup
-  // rather than on every event-select change like loadAll()'s other calls.
+  // ADR 0009 — org-level, not event-scoped.
   async function loadBranding() {
     const res = await api("/organization");
     if (!res.ok) return;
@@ -623,7 +771,7 @@
     }
   });
 
-  // ADR 0013 — org-level like branding, loads once at startup.
+  // ADR 0013 — org-level like branding.
   async function loadApprovalConfig() {
     const res = await api("/field-approval-config");
     if (!res.ok) return;
@@ -652,35 +800,95 @@
   wireApprovalToggle("approval-dietary", "dietary_preference");
   wireApprovalToggle("approval-flight", "flight_info");
 
-  // ADR 0014 — org-level like branding/approval-config, loads once at startup.
+  // ADR 0028 — shared between the Organization page's full Admins table
+  // and Overview's "not yet claimed" tile, since both render the same
+  // Resend/Rescind actions against the same admin_memberships rows.
+  function wireAdminInviteActions(scope) {
+    document.querySelectorAll(`${scope} .resend-admin-btn`).forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const res = await api(`/admins/${btn.dataset.id}/resend-link`, { method: "POST" });
+        const data = await res.json();
+        if (res.ok) {
+          showNotice(
+            data.devLink
+              ? `Dev mode — no email sent: <a href="${escapeHtml(data.devLink)}">sign-in link</a>.`
+              : data.emailDelivered === false
+                ? "Couldn't send the invite email — try again."
+                : "Invite link resent.",
+            data.emailDelivered === false ? "error" : "success",
+          );
+        } else {
+          showNotice(data.error ?? "Could not resend invite.", "error");
+        }
+      });
+    });
+    document.querySelectorAll(`${scope} .rescind-admin-btn`).forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        // Reuses the button's own label ("Revoke" for a claimed admin,
+        // "Rescind" for one who never signed in) so the confirm always
+        // matches what was clicked instead of a separate claimed/unclaimed
+        // branch here.
+        if (!confirm(`${btn.textContent.trim()} ${btn.dataset.email}'s admin access? This can't be undone.`)) return;
+        const res = await api(`/admins/${btn.dataset.id}`, { method: "DELETE" });
+        if (res.ok) {
+          showNotice("Done.", "success");
+          loadAdmins();
+          loadOverviewUnclaimedAdmins();
+        } else {
+          const err = await res.json();
+          showNotice(err.error ?? "Could not update admin access.", "error");
+        }
+      });
+    });
+  }
+
+  // ADR 0014 — org-level like branding/approval-config. ADR 0028 adds
+  // last-signed-in visibility + Resend (unclaimed only) alongside the
+  // existing Revoke/Rescind action.
   async function loadAdmins() {
     const res = await api("/admins");
     if (!res.ok) return;
     const rows = await res.json();
     document.getElementById("admins-body").innerHTML = rows.length === 0
-      ? `<tr><td colspan="3" class="hint">No admins listed.</td></tr>`
+      ? `<tr><td colspan="4" class="hint">No admins listed.</td></tr>`
+      : rows
+      .map((a) => {
+        const claimed = !!a.lastSignInAt;
+        return `<tr>
+          <td>${escapeHtml(a.email)}</td>
+          <td><span class="badge">${escapeHtml(a.role)}</span></td>
+          <td>${claimed ? new Date(a.lastSignInAt).toLocaleDateString() : '<span class="hint">Not yet claimed</span>'}</td>
+          <td>
+            ${!claimed ? `<button class="btn ghost resend-admin-btn" data-id="${escapeHtml(a.id)}" style="padding:4px 8px; font-size:11px;">Resend</button>` : ""}
+            <button class="btn ghost rescind-admin-btn" data-id="${escapeHtml(a.id)}" data-email="${escapeHtml(a.email)}" style="padding:4px 8px; font-size:11px; color:var(--accent);">${claimed ? "Revoke" : "Rescind"}</button>
+          </td>
+        </tr>`;
+      })
+      .join("");
+
+    wireAdminInviteActions("#admins-body");
+  }
+
+  async function loadOverviewUnclaimedAdmins() {
+    const res = await api("/admins");
+    if (!res.ok) return;
+    const rows = (await res.json()).filter((a) => !a.lastSignInAt);
+    document.getElementById("overview-unclaimed-admins-body").innerHTML = rows.length === 0
+      ? `<tr><td colspan="3" class="hint">Everyone invited has signed in.</td></tr>`
       : rows
       .map(
-        (a) => `<tr><td>${escapeHtml(a.email)}</td><td><span class="badge">${escapeHtml(a.role)}</span></td><td><button class="btn ghost revoke-admin-btn" data-id="${escapeHtml(a.id)}" data-email="${escapeHtml(a.email)}" style="padding:4px 8px; font-size:11px; color:var(--accent);">Revoke</button></td></tr>`,
+        (a) => `<tr>
+          <td>${escapeHtml(a.email)}</td>
+          <td>${new Date(a.createdAt).toLocaleDateString()}</td>
+          <td>
+            <button class="btn ghost resend-admin-btn" data-id="${escapeHtml(a.id)}" style="padding:4px 8px; font-size:11px;">Resend</button>
+            <button class="btn ghost rescind-admin-btn" data-id="${escapeHtml(a.id)}" data-email="${escapeHtml(a.email)}" style="padding:4px 8px; font-size:11px; color:var(--accent);">Rescind</button>
+          </td>
+        </tr>`,
       )
       .join("");
 
-    // ADR 0017 — no "who am I" row match client-side; the server's
-    // self-revoke and last-admin guards produce a clear error on the
-    // click itself rather than being pre-emptively hidden.
-    document.querySelectorAll(".revoke-admin-btn").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        if (!confirm(`Revoke ${btn.dataset.email}'s admin access? This can't be undone.`)) return;
-        const res = await api(`/admins/${btn.dataset.id}`, { method: "DELETE" });
-        if (res.ok) {
-          showNotice("Admin access revoked.", "success");
-          loadAdmins();
-        } else {
-          const err = await res.json();
-          showNotice(err.error ?? "Could not revoke admin.", "error");
-        }
-      });
-    });
+    wireAdminInviteActions("#overview-unclaimed-admins-body");
   }
 
   document.getElementById("invite-admin-btn").addEventListener("click", async () => {
@@ -872,11 +1080,7 @@
   ];
 
   // Backend supports all 5 export columns (worker/db/schema.ts
-  // hotelExportColumnLabels) but this card only ever exposed 2 and never
-  // loaded previously-saved values on open (gap-audit finding J2) —
-  // GET /events already returns hotelExportColumnLabels per event, this
-  // just reads it instead of leaving the inputs at their hardcoded
-  // placeholder defaults every time the page loads.
+  // hotelExportColumnLabels); GET /events already returns them per event.
   async function loadHotelExportLabels() {
     const res = await api("/events");
     const events = await res.json();
@@ -970,33 +1174,78 @@
     });
   });
 
-  // P1 (2026-07-18 consult review, UX Finding 3) — a freshly onboarded
-  // organization (ADR 0005's whole purpose) has zero events; eventId()
-  // then returns "" from the empty <select>, and every one of these
-  // fetches was firing against a malformed URL like
-  // /admin/events//notes (empty path segment) with no guard. loadAll()
-  // now short-circuits when there's no event to scope to, and the
-  // zero-events-notice card (shown by the startup IIFE below) gives the
-  // guided first step the empty dashboard didn't have.
-  function loadAll() {
-    if (!eventId()) return;
-    loadRegistrationSettings();
-    loadEventNotes();
-    loadChanges();
-    loadActivityFeed();
-    loadRequests();
-    loadRoster();
-    loadSubEvents();
-    loadHotelExportLabels();
+  // ADR 0028 — left-nav page switching. Each page loads its own data on
+  // navigating in rather than everything loading on every event switch
+  // (the old loadAll() pattern) — org-scoped pages (Organization) don't
+  // need an active event at all, and this avoids re-fetching all 7
+  // pages' worth of data every time the active event changes.
+  const NAV_PAGES = ["events", "overview", "attendees", "subevents", "hotel", "event-settings", "organization"];
+  let currentPage = "overview";
+
+  function loadPageData(page) {
+    if (!eventId() && page !== "events" && page !== "organization") return;
+    if (page === "overview") {
+      loadOverviewActivity();
+      loadOverviewUnclaimedAdmins();
+      loadEventNotes();
+    } else if (page === "attendees") {
+      loadChanges();
+      loadActivityFeed();
+      loadRequests();
+      loadRoster();
+    } else if (page === "subevents") {
+      loadSubEvents();
+    } else if (page === "hotel") {
+      loadHotelExportLabels();
+    } else if (page === "event-settings") {
+      loadRegistrationSettings();
+    } else if (page === "events") {
+      loadEventList();
+    } else if (page === "organization") {
+      loadBranding();
+      loadApprovalConfig();
+      loadAdmins();
+    }
   }
 
+  function showPage(page) {
+    currentPage = page;
+    for (const p of NAV_PAGES) {
+      document.getElementById(`page-${p}`).style.display = p === page ? "" : "none";
+    }
+    document.querySelectorAll(".nav-link").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.page === page);
+    });
+    document.getElementById("active-event-banner").style.display = page === "events" || page === "organization" ? "none" : "";
+    localStorage.setItem("eventdesk_active_page", page);
+    loadPageData(page);
+  }
+
+  document.querySelectorAll(".nav-link").forEach((btn) => {
+    btn.addEventListener("click", () => showPage(btn.dataset.page));
+  });
+
+  // P1 (2026-07-18 consult review, UX Finding 3) — a freshly onboarded
+  // organization (ADR 0005's whole purpose) has zero events; loadPageData
+  // short-circuits when there's no event to scope to (unless the page is
+  // Events/Organization, neither of which need one), and the
+  // zero-events-notice card gives the guided first step.
   (async () => {
     loadBranding();
     loadApprovalConfig();
     loadAdmins();
-    const events = await loadEventList();
-    document.getElementById("zero-events-notice").style.display = events.length === 0 ? "" : "none";
-    loadAll();
+    await loadEventList();
+
+    // A previously-active event may no longer exist; fall back cleanly.
+    if (!allEvents.find((e) => e.id === activeEventId)) {
+      activeEventId = allEvents.length > 0 ? allEvents[0].id : "";
+      localStorage.setItem("eventdesk_active_event", activeEventId);
+    }
+    document.getElementById("zero-events-notice").style.display = allEvents.length === 0 ? "" : "none";
+    renderActiveEventBanner();
+
+    const startPage = allEvents.length === 0 ? "events" : localStorage.getItem("eventdesk_active_page") || "overview";
+    showPage(startPage);
   })();
 </script>
 </body>
