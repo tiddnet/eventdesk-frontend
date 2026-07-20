@@ -394,6 +394,9 @@
     if (!name || !masterBillingName || !startDate || !endDate) {
       return showNotice("Name, master billing name, start date, and end date are all required.", "error");
     }
+    if (startDate > endDate) {
+      return showNotice("Start date must be on or before the end date.", "error");
+    }
 
     const res = await api("/events", {
       method: "POST",
