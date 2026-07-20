@@ -169,26 +169,26 @@
     </table>
   </div>
 
-  <div class="card">
-    <h2>Hotel export</h2>
-    <p class="hint">Column headers — edit to match the hotel's template.</p>
-    <div class="field-row">
+  <div class="card-row">
+    <div class="card">
+      <h2>Hotel export</h2>
+      <p class="hint">Column headers — edit to match the hotel's template.</p>
       <div class="field"><label for="lbl-company">Company</label><input id="lbl-company" value="Company" /></div>
       <div class="field"><label for="lbl-firstname">First Name</label><input id="lbl-firstname" value="First Name" /></div>
       <div class="field"><label for="lbl-lastname">Last Name</label><input id="lbl-lastname" value="Last Name" /></div>
       <div class="field"><label for="lbl-checkin">Check-in</label><input id="lbl-checkin" value="Check-in" /></div>
       <div class="field"><label for="lbl-checkout">Check-out</label><input id="lbl-checkout" value="Check-out" /></div>
+      <button class="btn ghost" id="save-labels">Save labels</button>
+      <button class="btn" id="export-csv">Export CSV</button>
     </div>
-    <button class="btn ghost" id="save-labels">Save labels</button>
-    <button class="btn" id="export-csv">Export CSV</button>
-  </div>
 
-  <div class="card">
-    <h2>Hotel import</h2>
-    <p class="hint">Upload the hotel's confirmation roster (Name, Check-in, Check-out, Confirmation Number).</p>
-    <input type="file" id="import-file" accept=".csv" />
-    <button class="btn" id="import-btn">Upload &amp; match</button>
-    <div id="import-results" style="margin-top: 14px;"></div>
+    <div class="card">
+      <h2>Hotel import</h2>
+      <p class="hint">Upload the hotel's confirmation roster (Name, Check-in, Check-out, Confirmation Number).</p>
+      <input type="file" id="import-file" accept=".csv" />
+      <button class="btn" id="import-btn">Upload &amp; match</button>
+      <div id="import-results" style="margin-top: 14px;"></div>
+    </div>
   </div>
 </div>
 
