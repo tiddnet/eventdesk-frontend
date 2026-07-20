@@ -28,7 +28,23 @@
     <p class="hint" style="margin: 10px 0 0;">For event admins. Guests: use the registration or sign-in link from your invitation.</p>
   </div>
 
+  <!-- ADR 0029 — always shown once an event's page loads, independent of
+       allowSelfRegistration. Matches POST /register's existing-attendee
+       branch, which never checked that toggle to begin with — only the
+       create-new-attendee branch does. Lets a CSV-imported or
+       admin-added attendee get their own link on their own schedule
+       without an admin having to individually resend it for them. -->
+  <div class="card" id="lookup-card" style="display:none;">
+    <p class="hint" style="margin:0 0 10px;">Already on the list? Enter your email to get your sign-in link.</p>
+    <div class="field">
+      <label for="lookup-email">Email</label>
+      <input id="lookup-email" type="email" placeholder="you@example.com" autocomplete="email" />
+    </div>
+    <button class="btn" id="lookup-btn" style="width:100%;">Get my sign-in link</button>
+  </div>
+
   <div class="card" id="register-card" style="display:none;">
+    <p class="hint" style="margin:0 0 10px;">New here? Register below.</p>
     <div class="field-row">
       <div class="field"><label for="reg-first">First name</label><input id="reg-first" /></div>
       <div class="field"><label for="reg-last">Last name</label><input id="reg-last" /></div>
@@ -42,11 +58,10 @@
       <input id="reg-company" />
     </div>
     <button class="btn" id="register-btn" style="width:100%;">Register</button>
-    <p class="hint" style="margin: 10px 0 0;">Already registered? Enter the same email to get a new sign-in link.</p>
   </div>
 
   <div class="card" id="closed-card" style="display:none;">
-    <p class="hint" style="margin:0;">Registration for this event is by invitation only. If you were invited, use the link from your invitation email.</p>
+    <p class="hint" style="margin:0;">New registration for this event is by invitation only. Already on the list? Use the form above to get your sign-in link.</p>
   </div>
 </div>
 
@@ -123,6 +138,34 @@
     }
   }
 
+  // ADR 0029 — same endpoint as full registration, but only ever sends
+  // eventId + email. Only meaningful against an attendee who already
+  // exists (admin-added or CSV-imported) — a non-existent email gets the
+  // same generic response as everything else here, no enumeration.
+  async function submitLookup(eventId) {
+    const email = document.getElementById("lookup-email").value.trim();
+    if (!email) return showNotice("Enter an email address.", "error");
+
+    const btn = document.getElementById("lookup-btn");
+    btn.disabled = true;
+    btn.textContent = "Sending…";
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId, email }),
+      });
+      const data = await res.json();
+      showDevLinkOrSuccess(data, "Check your email — we've sent you a sign-in link.");
+    } catch (err) {
+      showNotice("Something went wrong. Try again.", "error");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Get my sign-in link";
+    }
+  }
+
   async function submitRegistration(eventId) {
     const firstName = document.getElementById("reg-first").value.trim();
     const lastName = document.getElementById("reg-last").value.trim();
@@ -166,6 +209,13 @@
       document.getElementById("heading").textContent = event.name;
       document.getElementById("subheading").textContent = `${event.startDate} – ${event.endDate}`;
       applyBranding(event.branding);
+
+      // ADR 0029 — always available, independent of allowSelfRegistration.
+      document.getElementById("lookup-card").style.display = "";
+      document.getElementById("lookup-btn").addEventListener("click", () => submitLookup(eventId));
+      document.getElementById("lookup-email").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") submitLookup(eventId);
+      });
 
       if (event.allowSelfRegistration) {
         document.getElementById("register-card").style.display = "";

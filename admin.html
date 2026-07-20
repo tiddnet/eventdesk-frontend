@@ -141,6 +141,14 @@
         </div>
 
         <div class="card">
+          <h2>Bulk import</h2>
+          <p class="hint">CSV columns: First Name, Last Name, Email. No invite emails are sent — imported attendees can get their own link from the event's sign-in page, or you can resend individually from the roster above.</p>
+          <input type="file" id="attendee-import-file" accept=".csv" />
+          <button class="btn" id="attendee-import-btn">Upload</button>
+          <div id="attendee-import-results" style="margin-top: 14px;"></div>
+        </div>
+
+        <div class="card">
           <h2>Needs sign-off</h2>
           <p class="hint">Guest-submitted changes only — anything you enter directly applies immediately.</p>
           <table>
@@ -740,6 +748,43 @@
   }
 
   document.getElementById("cancel-edit-attendee").addEventListener("click", resetAttendeeForm);
+
+  // ADR 0029 — no invite emails sent per row on purpose; imported
+  // attendees use the always-available lookup form on index.html, or an
+  // admin resends individually from the roster.
+  document.getElementById("attendee-import-btn").addEventListener("click", async () => {
+    const fileInput = document.getElementById("attendee-import-file");
+    const file = fileInput.files[0];
+    if (!file) return showNotice("Choose a CSV file first.", "error");
+
+    const text = await file.text();
+    const res = await api(`/events/${eventId()}/attendees/import`, {
+      method: "POST",
+      headers: { "Content-Type": "text/csv" },
+      body: text,
+    });
+    if (!res.ok) return showNotice("Import failed.", "error");
+    const data = await res.json();
+
+    document.getElementById("attendee-import-results").innerHTML = `
+      <p class="hint" style="margin:0 0 8px;">${data.created.length} added, ${data.skipped.length} skipped.</p>
+      ${
+        data.skipped.length
+          ? `<table>
+              <thead><tr><th>Row</th><th>Reason</th></tr></thead>
+              <tbody>
+                ${data.skipped
+                  .map((s) => `<tr><td>${escapeHtml(s.row.join(", "))}</td><td>${escapeHtml(s.reason)}</td></tr>`)
+                  .join("")}
+              </tbody>
+            </table>`
+          : ""
+      }
+    `;
+    showNotice(`${data.created.length} attendee(s) added.`, "success");
+    fileInput.value = "";
+    loadRoster();
+  });
 
   // ADR 0009 — org-level, not event-scoped.
   async function loadBranding() {
