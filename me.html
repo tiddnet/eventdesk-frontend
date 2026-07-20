@@ -86,14 +86,25 @@
     }
   }
 
+  // Event dates were already being fetched here for nothing but branding —
+  // reused to show the event's own dates alongside the hotel-request
+  // fields (renderHotel below) so a guest doesn't have to look them up
+  // separately. Runs once (loadMe's brandingLoaded guard); re-renders
+  // renderHotel afterward since the first render already happened before
+  // this fetch resolves.
+  let eventDates = null;
+  let currentAttendee = null;
+
   async function loadBranding(eventId) {
     try {
       const res = await fetch(`${API_BASE_URL}/events/${encodeURIComponent(eventId)}/public`);
       if (!res.ok) return;
       const event = await res.json();
       applyBranding(event.branding);
+      eventDates = { startDate: event.startDate, endDate: event.endDate };
+      if (currentAttendee) renderHotel(currentAttendee);
     } catch (err) {
-      // Branding is cosmetic — a failed fetch here shouldn't block the page.
+      // Branding/dates are cosmetic — a failed fetch here shouldn't block the page.
     }
   }
 
@@ -136,8 +147,11 @@
     }
 
     const alreadyRequested = hotel.openRequests.length > 0;
+    const eventDatesHint = eventDates
+      ? ` The event runs ${escapeHtml(eventDates.startDate)} – ${escapeHtml(eventDates.endDate)}.`
+      : "";
     el.innerHTML = `
-      <p class="hint">We haven't booked your room yet — tell us your dates and we'll confirm a room and code here.</p>
+      <p class="hint">We haven't booked your room yet — tell us your dates and we'll confirm a room and code here.${eventDatesHint}</p>
       ${alreadyRequested ? `<div class="notice warn">Request submitted: ${escapeHtml(hotel.openRequests[0].requestedCheckIn)} → ${escapeHtml(hotel.openRequests[0].requestedCheckOut)}. Awaiting booking.</div>` : ""}
       <div class="field-row">
         <div class="field"><label for="checkin">Preferred check-in</label><input id="checkin" type="date" /></div>
@@ -261,6 +275,7 @@
   async function loadMe() {
     const res = await api("/me");
     const attendee = await res.json();
+    currentAttendee = attendee;
 
     document.getElementById("attendee-name").textContent = `${attendee.firstName} ${attendee.lastName}`;
     document.getElementById("preference").value = attendee.dietary?.preference ?? "";
