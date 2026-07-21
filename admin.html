@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <!-- ADR 0018 — see index.html for the full rationale/limitations note. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' https://eventdesk-api.toddcampbell-eventdesk.workers.dev; object-src 'none'; base-uri 'none'; frame-ancestors 'none';" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' https://api.eventdesk.click; object-src 'none'; base-uri 'none'; frame-ancestors 'none';" />
 <title>EventDesk — Admin</title>
 <link rel="stylesheet" href="style.css" />
 </head>
@@ -44,13 +44,13 @@
         <div class="card">
           <h2>Events</h2>
           <table style="margin-bottom: 14px;">
-            <thead><tr><th>Name</th><th>Dates</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Dates</th><th>Registration</th><th></th></tr></thead>
             <tbody id="upcoming-events-body"></tbody>
           </table>
           <details id="past-events-details" style="margin-bottom: 14px; display:none;">
             <summary class="hint" style="cursor:pointer;">Past events</summary>
             <table style="margin-top: 10px;">
-              <thead><tr><th>Name</th><th>Dates</th><th></th></tr></thead>
+              <thead><tr><th>Name</th><th>Dates</th><th>Registration</th><th></th></tr></thead>
               <tbody id="past-events-body"></tbody>
             </table>
           </details>
@@ -375,14 +375,26 @@
       <tr>
         <td>${escapeHtml(e.name)} ${e.id === activeEventId ? '<span class="badge">active</span>' : ""}</td>
         <td>${escapeHtml(e.startDate)} – ${escapeHtml(e.endDate)}</td>
+        <td><button class="btn ghost copy-reg-link-btn" data-url="${escapeHtml(registrationUrlFor(e.id))}" style="padding:4px 8px; font-size:11px;">Copy link</button></td>
         <td><button class="btn ghost select-event-btn" data-id="${escapeHtml(e.id)}" style="padding:4px 8px; font-size:11px;">${e.id === activeEventId ? "Selected" : "Select"}</button></td>
       </tr>`;
 
     document.getElementById("upcoming-events-body").innerHTML = upcoming.length
       ? upcoming.map(row).join("")
-      : `<tr><td colspan="3" class="hint">No upcoming events.</td></tr>`;
+      : `<tr><td colspan="4" class="hint">No upcoming events.</td></tr>`;
     document.getElementById("past-events-body").innerHTML = past.map(row).join("");
     document.getElementById("past-events-details").style.display = past.length ? "" : "none";
+
+    // Per-event, visible from the Events list itself — doesn't require
+    // switching the active event first to grab the link, unlike the
+    // Event settings page's copy button (scoped to whichever event is
+    // currently active).
+    document.querySelectorAll(".copy-reg-link-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        navigator.clipboard.writeText(btn.dataset.url);
+        showNotice("Registration link copied.", "success");
+      });
+    });
 
     document.querySelectorAll(".select-event-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -1019,6 +1031,10 @@
     }
   });
 
+  function registrationUrlFor(id) {
+    return `${window.location.origin}${window.location.pathname.replace("admin.html", "")}index.html?event=${id}`;
+  }
+
   async function loadRegistrationSettings() {
     // Public endpoint (ADR 0004) — deliberately not routed through api(),
     // which always prefixes /admin and attaches the admin session; this
@@ -1027,8 +1043,7 @@
     if (!res.ok) return;
     const event = await res.json();
     document.getElementById("allow-self-registration").checked = event.allowSelfRegistration;
-    document.getElementById("registration-link").textContent =
-      `${window.location.origin}${window.location.pathname.replace("admin.html", "")}index.html?event=${eventId()}`;
+    document.getElementById("registration-link").textContent = registrationUrlFor(eventId());
   }
 
   document.getElementById("save-registration-setting").addEventListener("click", async () => {
@@ -1115,6 +1130,7 @@
         <td>
           ${!se.autoEnrollNewAttendees ? `<button class="btn ghost enroll-all-btn" data-id="${escapeHtml(se.id)}" style="font-size:11px;">Enroll all</button>` : ""}
           <button class="btn ghost publish-btn" data-id="${escapeHtml(se.id)}" style="font-size:11px;">Publish PDF</button>
+          ${se.publishedPdfUrl ? `<button class="btn ghost view-pdf-btn" data-id="${escapeHtml(se.id)}" data-name="${escapeHtml(se.name)}" style="font-size:11px;">View PDF</button>` : ""}
           <button class="btn ghost delete-subevent-btn" data-id="${escapeHtml(se.id)}" data-name="${escapeHtml(se.name)}" style="font-size:11px; color:var(--accent);">Delete</button>
         </td>
       </tr>`,
@@ -1128,6 +1144,21 @@
           showNotice("Everyone enrolled.", "success");
           loadSubEvents();
         }
+      });
+    });
+    // Publishing was previously a dead end — it created the PDF and marked
+    // the row "Published" but nothing ever gave the admin a way to
+    // actually get the file. GET /sub-events/:id/pdf requires the admin
+    // session's Authorization header, so a plain <a href> can't hit it
+    // directly — same reason export-csv below fetches as a blob instead
+    // of navigating straight to the URL.
+    document.querySelectorAll(".view-pdf-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const res = await api(`/sub-events/${btn.dataset.id}/pdf`);
+        if (!res.ok) return showNotice("Could not load the PDF.", "error");
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
       });
     });
     document.querySelectorAll(".delete-subevent-btn").forEach((btn) => {
