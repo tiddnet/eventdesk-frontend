@@ -75,6 +75,16 @@
   .subevent-card .stat-line strong { color: var(--ink); font-variant-numeric: tabular-nums; }
   .subevent-card .card-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
   .subevent-card .card-actions .btn { flex: 1; font-size: 11.5px; padding: 6px 8px; }
+
+  /* Nav badges — always-on attention counts on the left nav itself,
+     visible on every page since the sidebar is. Hidden entirely at zero
+     (toggled via JS display:none) rather than showing "0". */
+  .nav-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 17px; height: 17px; padding: 0 5px; margin-left: 4px;
+    font-family: var(--font-mono, ui-monospace, monospace); font-size: 10.5px; font-weight: 700;
+    color: #fff; background: var(--accent); border-radius: 999px; line-height: 1;
+  }
 </style>
 </head>
 <body>
@@ -86,7 +96,7 @@
     <nav class="admin-nav">
       <button class="nav-link" data-page="events">Events</button>
       <button class="nav-link" data-page="overview">Overview</button>
-      <button class="nav-link" data-page="attendees">Attendees</button>
+      <button class="nav-link" data-page="attendees">Attendees <span class="nav-badge" id="attendees-nav-badge" style="display:none;"></span></button>
       <button class="nav-link" data-page="subevents">Sub-events</button>
       <button class="nav-link" data-page="hotel">Hotel</button>
       <button class="nav-link" data-page="event-settings">Event settings</button>
@@ -145,7 +155,7 @@
           <div class="stat-tile" id="stat-subevents"><div class="label">Sub-events Published</div><div class="value">—</div><div class="delta"></div></div>
         </div>
 
-        <div class="card-row">
+        <div class="card-row" id="overview-changes-row">
           <div class="panel" style="margin-bottom:0;">
             <div class="panel-head"><h2>Dietary &amp; meal changes</h2></div>
             <table class="roster">
@@ -429,6 +439,28 @@
     return activeEventId;
   }
 
+  // Nav badges — always-on attention count, visible on every page since
+  // the sidebar is. Combines pending-changes + hotel-requests since both
+  // currently live on the Attendees page; no polling — called on
+  // navigation and after the specific actions that change these counts,
+  // matching this app's existing no-polling-anywhere convention.
+  async function refreshNavBadges() {
+    const badge = document.getElementById("attendees-nav-badge");
+    if (!eventId()) {
+      badge.style.display = "none";
+      return;
+    }
+    const [changesRes, requestsRes] = await Promise.all([
+      api(`/events/${eventId()}/changes/pending`),
+      api(`/events/${eventId()}/hotel-requests`),
+    ]);
+    const changes = await changesRes.json();
+    const requests = await requestsRes.json();
+    const total = changes.length + requests.length;
+    badge.textContent = total;
+    badge.style.display = total > 0 ? "" : "none";
+  }
+
   function renderActiveEventBanner() {
     const banner = document.getElementById("active-event-banner");
     const ev = allEvents.find((e) => e.id === activeEventId);
@@ -446,6 +478,7 @@
     renderEventsPage();
     renderActiveEventBanner();
     loadPageData(currentPage);
+    refreshNavBadges();
   }
 
   async function loadEventList() {
@@ -590,6 +623,7 @@
           showNotice("Approved.", "success");
           loadChanges();
           computeOverviewStats();
+          refreshNavBadges();
         }
       });
     });
@@ -600,6 +634,7 @@
           showNotice("Rejected.", "success");
           loadChanges();
           computeOverviewStats();
+          refreshNavBadges();
         }
       });
     });
@@ -683,6 +718,7 @@
           showNotice("Room booked.", "success");
           loadRequests();
           loadRoster();
+          refreshNavBadges();
         }
       });
     });
@@ -694,6 +730,7 @@
         if (res.ok) {
           showNotice("Request dismissed.", "success");
           loadRequests();
+          refreshNavBadges();
         }
       });
     });
@@ -904,6 +941,12 @@
     document.querySelectorAll(".flight-feature").forEach((el) => {
       el.style.display = orgSettings.flightTrackingEnabled ? "" : "none";
     });
+    // ADR 0033 follow-up — hiding overview-flight-card via display:none
+    // still reserves its column in the 2-col grid (.card-row), leaving a
+    // visible gap next to Dietary & meal changes. Collapse that specific
+    // row to one column instead of just hiding the panel inside it.
+    document.getElementById("overview-changes-row").style.gridTemplateColumns =
+      orgSettings.flightTrackingEnabled ? "" : "1fr";
   }
 
   async function loadBranding() {
@@ -1488,6 +1531,7 @@
     document.getElementById("active-event-banner").style.display = page === "events" || page === "organization" ? "none" : "";
     localStorage.setItem("eventdesk_active_page", page);
     loadPageData(page);
+    refreshNavBadges();
   }
 
   document.querySelectorAll(".nav-link").forEach((btn) => {
