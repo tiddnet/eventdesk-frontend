@@ -1,0 +1,1008 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>EventDesk — Design Preview</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<style>
+  :root {
+    --bg: #f3f5f8;
+    --surface: #ffffff;
+    --surface-2: #e8edf3;
+    --ink: #16273f;
+    --ink-soft: #4c5f78;
+    --ink-faint: #8695a8;
+    --border: #d7dfe9;
+    --border-strong: #b9c6d6;
+    --navy: #1b3a63;
+    --navy-mid: #2f5c9e;
+    --accent: #a93226;
+    --accent-ink: #fff6f5;
+    --accent-soft: #f3dbd8;
+    --vip: #7a4f14;
+    --vip-soft: #f2e6cf;
+    --success: #2c7a4b;
+    --success-soft: #e0efe4;
+    --warning: #a86b0c;
+    --warning-soft: #f6ead0;
+    --danger: #a93226;
+    --danger-soft: #f3dbd8;
+    --focus: #2f5c9e;
+    --shadow: 0 1px 2px rgba(22,39,63,0.06), 0 4px 14px rgba(22,39,63,0.07);
+    --radius: 6px;
+    --font-display: "Arial Narrow", "Helvetica Neue Condensed", Arial, sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1620;
+      --surface: #16202c;
+      --surface-2: #1c2938;
+      --ink: #e7ecf2;
+      --ink-soft: #9fadc0;
+      --ink-faint: #6a7890;
+      --border: #29394d;
+      --border-strong: #3a4e66;
+      --navy: #3a6ab5;
+      --navy-mid: #5c8bd6;
+      --accent: #d1594a;
+      --accent-ink: #1c0f0c;
+      --accent-soft: #3a221d;
+      --vip: #d9ac5c;
+      --vip-soft: #3a2e15;
+      --success: #4fae79;
+      --success-soft: #163526;
+      --warning: #d9a341;
+      --warning-soft: #3a2d13;
+      --danger: #d1594a;
+      --danger-soft: #3a221d;
+      --focus: #5c8bd6;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 4px 18px rgba(0,0,0,0.35);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  button { font-family: inherit; }
+
+  .preview-banner {
+    background: var(--navy);
+    color: #fff;
+    text-align: center;
+    padding: 8px 16px;
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+  .preview-banner strong { font-weight: 800; }
+
+  header.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 28px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .brand-name {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 21px;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  .brand-sub {
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 3px;
+  }
+  .topbar-right { display: flex; align-items: center; gap: 18px; }
+  .org-switch {
+    font-size: 13px;
+    color: var(--ink-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px 12px;
+    background: var(--surface-2);
+  }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 12.5px;
+    border: 1px solid var(--border);
+  }
+
+  nav.tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 28px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  nav.tabs button {
+    appearance: none;
+    border: none;
+    background: none;
+    color: var(--ink-soft);
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 13px 6px;
+    margin-right: 22px;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    letter-spacing: 0.01em;
+  }
+  nav.tabs button:hover { color: var(--ink); }
+  nav.tabs button.active { color: var(--navy-mid); border-bottom-color: var(--navy-mid); }
+  nav.tabs button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  main { max-width: 1240px; margin: 0 auto; padding: 26px 28px 80px; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .page-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
+  }
+  h1.page-title {
+    font-family: var(--font-display);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.015em;
+    font-size: 26px;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .page-meta { color: var(--ink-faint); font-size: 13px; }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat-tile {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+  }
+  .stat-tile .label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--ink-faint); font-weight: 700; margin-bottom: 8px;
+  }
+  .stat-tile .value {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 26px; font-weight: 600; line-height: 1;
+    color: var(--ink);
+  }
+  .stat-tile .delta { font-size: 12px; margin-top: 6px; color: var(--ink-soft); }
+  .stat-tile.attn .value { color: var(--accent); }
+  .stat-tile.attn { border-color: var(--accent-soft); }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+    align-items: start;
+  }
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+  }
+  .panel-head h2 {
+    font-family: var(--font-display);
+    font-size: 15px; text-transform: uppercase; letter-spacing: 0.04em;
+    margin: 0; font-weight: 800;
+  }
+  .panel-head .count-pill {
+    font-family: var(--font-mono);
+    font-size: 11.5px; font-weight: 700;
+    background: var(--accent-soft); color: var(--accent);
+    border-radius: 20px; padding: 2px 9px;
+  }
+  .panel-body { padding: 6px 0; }
+
+  .change-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .change-row:last-child { border-bottom: none; }
+  .change-avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--surface-2); color: var(--ink-soft);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11.5px; font-weight: 700; flex-shrink: 0;
+  }
+  .change-text { min-width: 0; }
+  .change-text .who { font-weight: 600; font-size: 13.5px; }
+  .change-text .what { color: var(--ink-soft); font-size: 12.5px; margin-top: 1px; }
+  .change-text .what .field-tag {
+    font-family: var(--font-mono); font-size: 10.5px;
+    background: var(--surface-2); border-radius: 3px; padding: 1px 5px;
+    margin-right: 4px; color: var(--ink-soft);
+  }
+  .change-actions { display: flex; gap: 6px; white-space: nowrap; }
+  .btn {
+    font-size: 12.5px; font-weight: 600; border-radius: var(--radius);
+    padding: 6px 12px; border: 1px solid var(--border-strong);
+    background: var(--surface); color: var(--ink); cursor: pointer;
+  }
+  .btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .btn.approve { background: var(--success); color: #fff; border-color: var(--success); }
+  .btn.reject { background: transparent; color: var(--danger); border-color: var(--danger-soft); }
+  .btn.ghost { background: transparent; }
+  .btn.primary { background: var(--navy); color: #fff; border-color: var(--navy); }
+
+  .awareness-row { padding: 11px 16px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .awareness-row:last-child { border-bottom: none; }
+  .awareness-row .what { color: var(--ink); }
+  .awareness-row .when { color: var(--ink-faint); font-size: 11.5px; margin-top: 2px; }
+  .ack-pill {
+    display: inline-block; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--ink-faint); border: 1px solid var(--border);
+    border-radius: 20px; padding: 1px 8px; margin-left: 6px;
+  }
+
+  table.roster { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.roster th {
+    text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--ink-faint); font-weight: 700; padding: 10px 14px; border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  table.roster td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  table.roster tr:last-child td { border-bottom: none; }
+  table.roster tr:hover td { background: var(--surface-2); }
+  .name-cell { font-weight: 600; }
+  .code { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .badge {
+    display: inline-flex; align-items: center; font-size: 10.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.04em; border-radius: 20px; padding: 2px 9px;
+  }
+  .badge.internal { background: var(--surface-2); color: var(--ink-soft); }
+  .badge.external { background: var(--surface-2); color: var(--ink-soft); }
+  .badge.vip { background: var(--vip-soft); color: var(--vip); }
+  .source-tag { font-size: 10.5px; color: var(--ink-faint); font-weight: 600; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .dot.ok { background: var(--success); }
+  .dot.wait { background: var(--warning); }
+  .dot.none { background: var(--border-strong); }
+  .note-flag { color: var(--ink-faint); cursor: help; }
+  .table-toolbar { display: flex; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .search-input {
+    flex: 1; max-width: 280px; padding: 7px 11px; border: 1px solid var(--border);
+    border-radius: var(--radius); background: var(--bg); color: var(--ink); font-size: 13px;
+  }
+  .filter-chip {
+    font-size: 12px; padding: 6px 11px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--ink-soft); cursor: pointer;
+  }
+  .filter-chip.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .preview-toggle {
+    font-size: 11.5px; padding: 5px 10px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--ink-soft); cursor: pointer;
+  }
+  .preview-toggle.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+
+  .subevent-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+  .subevent-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 16px;
+  }
+  .subevent-card .mode-badge {
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    border-radius: 20px; padding: 2px 9px; display: inline-block; margin-bottom: 10px;
+  }
+  .mode-badge.open { background: var(--success-soft); color: var(--success); }
+  .mode-badge.all { background: var(--surface-2); color: var(--ink-soft); }
+  .subevent-card h3 { font-size: 15.5px; margin: 0 0 4px; }
+  .subevent-card .when { font-size: 12.5px; color: var(--ink-faint); margin-bottom: 12px; }
+  .subevent-card .stat-line {
+    display: flex; justify-content: space-between; font-size: 12.5px; color: var(--ink-soft);
+    padding-top: 10px; border-top: 1px solid var(--border); margin-top: 4px;
+  }
+  .subevent-card .stat-line strong { color: var(--ink); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .subevent-card .card-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+  .guest-shell { max-width: 640px; margin: 0 auto; }
+  .guest-hero {
+    background: var(--navy); color: #fff; border-radius: var(--radius);
+    padding: 28px 26px; margin-bottom: 20px;
+  }
+  .guest-hero .eyebrow {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.65; margin-bottom: 8px;
+  }
+  .guest-hero h1 {
+    font-family: var(--font-display); font-size: 28px; text-transform: uppercase;
+    letter-spacing: 0.01em; margin: 0 0 6px; text-wrap: balance;
+  }
+  .guest-hero .dates { font-size: 13.5px; opacity: 0.8; font-family: var(--font-mono); }
+  .form-section {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 20px 22px; margin-bottom: 14px; box-shadow: var(--shadow);
+  }
+  .form-section h2 {
+    font-family: var(--font-display); font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em;
+    margin: 0 0 4px;
+  }
+  .form-section .hint { font-size: 12.5px; color: var(--ink-faint); margin: 0 0 16px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+  .field input, .field select {
+    padding: 9px 11px; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--bg); color: var(--ink); font-size: 13.5px; font-family: inherit;
+  }
+  .field input:focus, .field select:focus { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .readonly-field {
+    padding: 9px 11px; border: 1px dashed var(--border-strong); border-radius: var(--radius);
+    background: var(--surface-2); color: var(--ink-soft); font-size: 13.5px; font-family: var(--font-mono);
+  }
+  .approval-note {
+    display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: var(--warning);
+    background: var(--warning-soft); border-radius: var(--radius); padding: 9px 11px; margin-top: 10px;
+  }
+  .subevent-choice {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 11px 4px; border-bottom: 1px solid var(--border);
+  }
+  .subevent-choice:last-child { border-bottom: none; }
+  .subevent-choice .info strong { display: block; font-size: 13.5px; }
+  .subevent-choice .info span { font-size: 12px; color: var(--ink-faint); }
+  .toggle {
+    width: 40px; height: 22px; border-radius: 20px; background: var(--border-strong);
+    position: relative; cursor: pointer; border: none; flex-shrink: 0;
+  }
+  .toggle.on { background: var(--success); }
+  .toggle::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+    border-radius: 50%; background: #fff; transition: transform 0.15s ease;
+  }
+  .toggle.on::after { transform: translateX(18px); }
+  .locked-pill {
+    font-size: 11px; color: var(--ink-faint); border: 1px solid var(--border); border-radius: 20px;
+    padding: 3px 10px;
+  }
+  .submit-row { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+
+  footer.mock-footer {
+    max-width: 1240px; margin: 0 auto; padding: 20px 28px 40px; color: var(--ink-faint); font-size: 12px;
+  }
+
+  @media (max-width: 900px) {
+    .stat-row { grid-template-columns: repeat(2, 1fr); }
+    .grid-2 { grid-template-columns: 1fr; }
+    .subevent-grid { grid-template-columns: 1fr; }
+    .field-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="preview-banner">🎨 <strong>Design preview</strong> — not connected to live data. All names, numbers, and events below are fictional.</div>
+
+<header class="topbar">
+  <div class="brand">
+    <div>
+      <div class="brand-name">EventDesk</div>
+      <div class="brand-sub">Event platform</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="org-switch">Annual Dealer Summit 2027 ▾</div>
+    <div class="avatar">TC</div>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="active" data-view="dashboard">Admin Dashboard</button>
+  <button data-view="guest">Guest Registration</button>
+</nav>
+
+<main>
+
+  <!-- ADMIN DASHBOARD -->
+  <section class="view active" id="view-dashboard">
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Annual Dealer Summit 2027</h1>
+        <div class="page-meta">Jan 19–22 · Omni Louisville · 212 attendees · 4 sub-events</div>
+      </div>
+      <button class="btn primary">+ New sub-event</button>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-tile attn">
+        <div class="label">Pending Approval</div>
+        <div class="value">7</div>
+        <div class="delta">3 flight changes, 4 hotel</div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">Awareness Only</div>
+        <div class="value">23</div>
+        <div class="delta">last 24h</div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">Total Attendees</div>
+        <div class="value">212</div>
+        <div class="delta">168 internal · 44 external · 3 VIP</div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">Dietary Flags</div>
+        <div class="value">31</div>
+        <div class="delta">6 severe allergy</div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">Sub-events Published</div>
+        <div class="value">3<span style="color:var(--ink-faint); font-weight:400;">/4</span></div>
+        <div class="delta">1 PDF pending</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Needs sign-off</h2>
+          <span class="count-pill">7</span>
+        </div>
+        <div style="padding:2px 16px 10px; font-size:11.5px; color:var(--ink-faint); border-bottom:1px solid var(--border);">
+          Guest-submitted changes only — anything your team enters directly applies immediately and appears in the activity log, not here.
+        </div>
+        <div class="panel-body">
+          <div class="change-row" style="background:var(--vip-soft);">
+            <div class="change-avatar" style="background:var(--vip); color:#fff;">KW</div>
+            <div class="change-text">
+              <div class="who">Klaus Weber <span class="badge vip" style="margin-left:6px;">VIP</span> <span style="font-weight:400;color:var(--ink-faint)">— Volvo Trucks, external</span></div>
+              <div class="what"><span class="field-tag">dietary</span>Added: shellfish allergy — normally auto-applied, escalated for VIP visibility</div>
+            </div>
+            <div class="change-actions">
+              <button class="btn reject">Dismiss</button>
+              <button class="btn approve">Acknowledge</button>
+            </div>
+          </div>
+          <div class="change-row">
+            <div class="change-avatar">JR</div>
+            <div class="change-text">
+              <div class="who">James Reyes <span style="font-weight:400;color:var(--ink-faint)">— external</span></div>
+              <div class="what"><span class="field-tag">flight_info</span>Changed arrival from Jan 19, 2:10p → Jan 18, 9:40p <span class="source-tag">· self-submitted</span></div>
+            </div>
+            <div class="change-actions">
+              <button class="btn reject">Reject</button>
+              <button class="btn approve">Approve</button>
+            </div>
+          </div>
+          <div class="change-row">
+            <div class="change-avatar">LM</div>
+            <div class="change-text">
+              <div class="who">Lena Moss <span style="font-weight:400;color:var(--ink-faint)">— internal</span></div>
+              <div class="what"><span class="field-tag">hotel_room</span>Requested room swap: 1408 → adjoining to 1406 <span class="source-tag">· self-submitted</span></div>
+            </div>
+            <div class="change-actions">
+              <button class="btn reject">Reject</button>
+              <button class="btn approve">Approve</button>
+            </div>
+          </div>
+          <div class="change-row">
+            <div class="change-avatar">DK</div>
+            <div class="change-text">
+              <div class="who">Derek Kwan <span style="font-weight:400;color:var(--ink-faint)">— external</span></div>
+              <div class="what"><span class="field-tag">flight_info</span>Added return leg: Jan 22, UA 2216, 6:05p <span class="source-tag">· self-submitted</span></div>
+            </div>
+            <div class="change-actions">
+              <button class="btn reject">Reject</button>
+              <button class="btn approve">Approve</button>
+            </div>
+          </div>
+          <div class="change-row">
+            <div class="change-avatar">PS</div>
+            <div class="change-text">
+              <div class="who">Priya Sen <span style="font-weight:400;color:var(--ink-faint)">— internal</span></div>
+              <div class="what"><span class="field-tag">hotel_room</span>Late checkout request: Jan 22 → Jan 23</div>
+            </div>
+            <div class="change-actions">
+              <button class="btn reject">Reject</button>
+              <button class="btn approve">Approve</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Awareness feed</h2>
+          <span class="count-pill">23</span>
+        </div>
+        <div class="panel-body">
+          <div class="awareness-row">
+            <div class="what">You booked <em>flight AA 1042</em> for Priya Sen<span class="ack-pill">team entry</span></div>
+            <div class="when">6 min ago</div>
+          </div>
+          <div class="awareness-row">
+            <div class="what">Maria Ortiz updated dietary preference to <em>vegetarian, no shellfish</em><span class="ack-pill">auto-applied</span></div>
+            <div class="when">14 min ago</div>
+          </div>
+          <div class="awareness-row">
+            <div class="what">Tom Baird signed up for <em>Golf Outing — Wed AM</em><span class="ack-pill">auto-applied</span></div>
+            <div class="when">41 min ago</div>
+          </div>
+          <div class="awareness-row">
+            <div class="what">Anh Pham updated dietary preference to <em>gluten-free</em><span class="ack-pill">auto-applied</span></div>
+            <div class="when">1h ago</div>
+          </div>
+          <div class="awareness-row">
+            <div class="what">6 attendees confirmed magic-link registration</div>
+            <div class="when">2h ago</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:24px;">
+      <div class="panel-head">
+        <h2>Attendee roster</h2>
+        <span class="count-pill">212</span>
+      </div>
+      <div class="table-toolbar">
+        <input class="search-input" placeholder="Search name, hotel code, PNR…" />
+        <button class="filter-chip on">All</button>
+        <button class="filter-chip">Internal</button>
+        <button class="filter-chip">External</button>
+        <button class="filter-chip">VIP</button>
+        <button class="filter-chip">Has dietary flag</button>
+        <button class="filter-chip">Has private note</button>
+      </div>
+      <table class="roster">
+        <thead>
+          <tr>
+            <th>Attendee</th>
+            <th>Affiliation</th>
+            <th>Hotel room</th>
+            <th>Hotel code</th>
+            <th>Flight</th>
+            <th>Dietary</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background:var(--vip-soft);">
+            <td class="name-cell">Klaus Weber</td>
+            <td><span class="badge external">External</span> <span class="badge vip">VIP</span></td>
+            <td class="code">Presidential Suite</td>
+            <td class="code">OMNI-FDS-0001</td>
+            <td><span class="dot ok"></span>confirmed <span class="source-tag">· team-booked</span></td>
+            <td>Shellfish allergy</td>
+            <td class="note-flag" title="Admin note on file">●</td>
+          </tr>
+          <tr>
+            <td class="name-cell">James Reyes</td>
+            <td><span class="badge external">External</span></td>
+            <td class="code">1412</td>
+            <td class="code">OMNI-FDS-1412</td>
+            <td><span class="dot wait"></span>pending review <span class="source-tag">· self-submitted</span></td>
+            <td>—</td>
+            <td class="note-flag" title="Admin note on file">●</td>
+          </tr>
+          <tr>
+            <td class="name-cell">Lena Moss</td>
+            <td><span class="badge internal">Internal</span></td>
+            <td class="code">1408</td>
+            <td class="code">OMNI-FDS-1408</td>
+            <td><span class="dot ok"></span>confirmed <span class="source-tag">· team-booked</span></td>
+            <td>Vegetarian</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td class="name-cell">Maria Ortiz</td>
+            <td><span class="badge internal">Internal</span></td>
+            <td class="code">0922</td>
+            <td class="code">OMNI-FDS-0922</td>
+            <td><span class="dot ok"></span>confirmed</td>
+            <td>Vegetarian, no shellfish</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td class="name-cell">Derek Kwan</td>
+            <td><span class="badge external">External</span></td>
+            <td class="code">1417</td>
+            <td class="code">OMNI-FDS-1417</td>
+            <td><span class="dot wait"></span>pending review</td>
+            <td>—</td>
+            <td class="note-flag" title="Admin note on file">●</td>
+          </tr>
+          <tr>
+            <td class="name-cell">Priya Sen</td>
+            <td><span class="badge internal">Internal</span></td>
+            <td class="code">0847</td>
+            <td class="code">OMNI-FDS-0847</td>
+            <td><span class="dot ok"></span>confirmed</td>
+            <td>Severe peanut allergy</td>
+            <td class="note-flag" title="Admin note on file">●</td>
+          </tr>
+          <tr>
+            <td class="name-cell">Anh Pham</td>
+            <td><span class="badge internal">Internal</span></td>
+            <td class="code">0913</td>
+            <td class="code">OMNI-FDS-0913</td>
+            <td><span class="dot none"></span>not submitted</td>
+            <td>Gluten-free</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel" style="margin-bottom:24px;">
+      <div class="panel-head">
+        <h2>Hotel requests — awaiting booking</h2>
+        <span class="count-pill" style="background:var(--accent-soft); color:var(--accent);">3</span>
+      </div>
+      <div style="padding:2px 16px 10px; font-size:11.5px; color:var(--ink-faint); border-bottom:1px solid var(--border);">
+        Guests with no room booked yet submitted these dates directly — nothing's confirmed until you book and enter it below.
+      </div>
+      <div class="panel-body">
+        <div class="change-row" style="background:var(--vip-soft);">
+          <div class="change-avatar" style="background:var(--vip); color:#fff;">KW</div>
+          <div class="change-text">
+            <div class="who">Klaus Weber <span class="badge vip" style="margin-left:6px;">VIP</span></div>
+            <div class="what">Requested Jan 18 → Jan 23 <span class="source-tag">· "Need a suite if available, traveling with an assistant"</span></div>
+          </div>
+          <div class="change-actions">
+            <button class="btn primary">Book room</button>
+          </div>
+        </div>
+        <div class="change-row">
+          <div class="change-avatar">DK</div>
+          <div class="change-text">
+            <div class="who">Derek Kwan <span style="font-weight:400;color:var(--ink-faint)">— external</span></div>
+            <div class="what">Requested Jan 19 → Jan 22 <span class="source-tag">· no note</span></div>
+          </div>
+          <div class="change-actions">
+            <button class="btn primary">Book room</button>
+          </div>
+        </div>
+        <div class="change-row">
+          <div class="change-avatar">AP</div>
+          <div class="change-text">
+            <div class="who">Anh Pham <span style="font-weight:400;color:var(--ink-faint)">— internal</span></div>
+            <div class="what">Requested Jan 19 → Jan 23 <span class="source-tag">· "Staying through the weekend, personal time"</span></div>
+          </div>
+          <div class="change-actions">
+            <button class="btn primary">Book room</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-head" style="margin-bottom:14px;">
+      <h1 class="page-title" style="font-size:19px;">Hotel Roster</h1>
+      <div class="page-meta">Omni Louisville Hotel · block rate $189/night</div>
+    </div>
+    <div class="grid-2" style="margin-bottom:24px;">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Export to hotel</h2>
+          <span class="count-pill" style="background:var(--success-soft); color:var(--success);">198 ready</span>
+        </div>
+        <div style="padding:14px 16px 4px; font-size:12px; color:var(--ink-faint);">
+          Column headers — edit to match the hotel's template, order and field mapping stay fixed.
+        </div>
+        <div style="padding:6px 16px 14px; display:flex; flex-direction:column; gap:8px;">
+          <div style="display:grid; grid-template-columns: 90px 1fr; align-items:center; gap:10px;">
+            <span style="font-size:11.5px; color:var(--ink-faint);">Company</span>
+            <input class="search-input" style="max-width:none;" value="Company" />
+          </div>
+          <div style="display:grid; grid-template-columns: 90px 1fr; align-items:center; gap:10px;">
+            <span style="font-size:11.5px; color:var(--ink-faint);">First name</span>
+            <input class="search-input" style="max-width:none;" value="First Name" />
+          </div>
+          <div style="display:grid; grid-template-columns: 90px 1fr; align-items:center; gap:10px;">
+            <span style="font-size:11.5px; color:var(--ink-faint);">Last name</span>
+            <input class="search-input" style="max-width:none;" value="Last Name" />
+          </div>
+          <div style="display:grid; grid-template-columns: 90px 1fr; align-items:center; gap:10px;">
+            <span style="font-size:11.5px; color:var(--ink-faint);">Check-in</span>
+            <input class="search-input" style="max-width:none;" value="Check-in" />
+          </div>
+          <div style="display:grid; grid-template-columns: 90px 1fr; align-items:center; gap:10px;">
+            <span style="font-size:11.5px; color:var(--ink-faint);">Check-out</span>
+            <input class="search-input" style="max-width:none;" value="Check-out" />
+          </div>
+        </div>
+        <div style="padding:0 16px 16px; font-size:11.5px; color:var(--ink-faint);">
+          182 billed to <strong style="color:var(--ink-soft);">M&amp;K Truck Centers</strong> (master) · 16 billed to their own company
+        </div>
+        <div style="padding:0 16px 16px;">
+          <button class="btn primary" style="width:100%;">Export CSV — 198 rows</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Import from hotel</h2>
+          <span class="count-pill">last: Jan 12</span>
+        </div>
+        <div style="padding:14px 16px 4px; font-size:12px; color:var(--ink-faint);">
+          Upload the hotel's confirmation roster. Matches are staged for review — nothing is applied until you confirm.
+        </div>
+        <div style="padding:12px 16px;">
+          <div style="border:1px dashed var(--border-strong); border-radius:var(--radius); padding:18px; text-align:center; font-size:12.5px; color:var(--ink-faint); background:var(--surface-2);">
+            omni_louisville_confirmations.csv <span class="source-tag">· 44 rows</span>
+          </div>
+        </div>
+        <div style="padding:0 16px 14px; display:flex; gap:16px; font-size:12.5px;">
+          <span><span class="dot ok"></span>38 matched</span>
+          <span><span class="dot wait"></span>4 ambiguous</span>
+          <span><span class="dot" style="background:var(--danger);"></span>2 unmatched</span>
+        </div>
+        <table class="roster" style="font-size:12.5px;">
+          <thead>
+            <tr><th>Hotel's name</th><th>Matched attendee</th><th>Confirmation #</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Reyes, James</td>
+              <td>James Reyes</td>
+              <td class="code">OMNI-CNF-88231</td>
+              <td><span class="dot ok"></span></td>
+            </tr>
+            <tr>
+              <td>D. Kwan</td>
+              <td style="color:var(--warning);">2 candidates — pick one ▾</td>
+              <td class="code">OMNI-CNF-88245</td>
+              <td><span class="dot wait"></span></td>
+            </tr>
+            <tr>
+              <td>Klaus Webber</td>
+              <td style="color:var(--danger);">No match — assign manually</td>
+              <td class="code">OMNI-CNF-88250</td>
+              <td><span class="dot" style="background:var(--danger);"></span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="padding:12px 16px 16px;">
+          <button class="btn primary" style="width:100%;">Review remaining 6 rows →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-head" style="margin-bottom:14px;">
+      <h1 class="page-title" style="font-size:19px;">Sub-events</h1>
+    </div>
+    <div class="subevent-grid">
+      <div class="subevent-card">
+        <span class="mode-badge all">Auto-enroll: on</span>
+        <h3>Opening Keynote</h3>
+        <div class="when">Jan 19 · 9:00a–11:00a · Grand Ballroom</div>
+        <div class="stat-line">On roster<strong>212 / 212</strong></div>
+        <div class="stat-line">PDF<strong>Published</strong></div>
+        <div class="card-actions">
+          <button class="btn ghost" style="flex:1;">Edit</button>
+          <button class="btn" style="flex:1;">Re-publish PDF</button>
+        </div>
+      </div>
+      <div class="subevent-card">
+        <span class="mode-badge all">Auto-enroll: on</span>
+        <h3>Fireside Chat: Kevin O'Leary</h3>
+        <div class="when">Jan 21 · 7:00p–8:30p · Grand Ballroom</div>
+        <div class="stat-line">On roster<strong>212 / 212</strong></div>
+        <div class="stat-line">PDF<strong style="color:var(--accent);">Not published</strong></div>
+        <div class="card-actions">
+          <button class="btn ghost" style="flex:1;">Edit</button>
+          <button class="btn primary" style="flex:1;">Publish PDF</button>
+        </div>
+      </div>
+      <div class="subevent-card">
+        <span class="mode-badge open">Auto-enroll: off</span>
+        <h3>Golf Outing — Wed AM</h3>
+        <div class="when">Jan 20 · 7:30a–12:00p · Valhalla GC</div>
+        <div class="stat-line">Signed up<strong>44 / 60</strong> <a href="#" style="font-size:11.5px; color:var(--navy-mid); font-weight:600; text-decoration:none;">Enroll everyone →</a></div>
+        <div class="stat-line">PDF<strong>Published</strong></div>
+        <div class="card-actions">
+          <button class="btn ghost" style="flex:1;">Edit</button>
+          <button class="btn" style="flex:1;">Re-publish PDF</button>
+        </div>
+      </div>
+      <div class="subevent-card">
+        <span class="mode-badge open">Auto-enroll: off</span>
+        <h3>Distillery Tour</h3>
+        <div class="when">Jan 20 · 1:00p–4:30p · Bardstown Rd</div>
+        <div class="stat-line">Signed up<strong>38 / 40</strong> <a href="#" style="font-size:11.5px; color:var(--navy-mid); font-weight:600; text-decoration:none;">Enroll everyone →</a></div>
+        <div class="stat-line">PDF<strong>Published</strong></div>
+        <div class="card-actions">
+          <button class="btn ghost" style="flex:1;">Edit</button>
+          <button class="btn" style="flex:1;">Re-publish PDF</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GUEST REGISTRATION -->
+  <section class="view" id="view-guest">
+    <div class="guest-shell">
+      <div class="guest-hero">
+        <div class="eyebrow">You're registered for</div>
+        <h1>Annual Dealer Summit 2027</h1>
+        <div class="dates">Jan 19–22 · Omni Louisville Hotel</div>
+      </div>
+
+      <div class="form-section">
+        <h2>Your details</h2>
+        <p class="hint">Internal/external status and travel window are set by the event organizer.</p>
+        <div class="field-row">
+          <div class="field"><label>Full name</label><input value="James Reyes" /></div>
+          <div class="field"><label>Email</label><input value="jreyes@example.com" /></div>
+        </div>
+
+        <div id="hotel-confirmed-state">
+          <div class="field-row">
+            <div class="field">
+              <label>Hotel room</label>
+              <div class="readonly-field">Room 1412</div>
+            </div>
+            <div class="field">
+              <label>Hotel confirmation code</label>
+              <div class="readonly-field">OMNI-FDS-1412</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="hotel-awaiting-state" style="display:none;">
+          <p class="hint" style="margin-top:-4px;">We haven't booked your room yet — tell us your dates and we'll confirm a room and code here.</p>
+          <div class="field-row">
+            <div class="field"><label>Preferred check-in</label><input type="date" value="2027-01-18" min="2027-01-18" max="2027-01-23" /></div>
+            <div class="field"><label>Preferred check-out</label><input type="date" value="2027-01-22" min="2027-01-18" max="2027-01-23" /></div>
+          </div>
+          <div class="field">
+            <label>Anything we should know?</label>
+            <input value="Arriving a day early — connecting from an international flight" />
+          </div>
+          <div class="submit-row" style="margin-top:12px;">
+            <button class="btn primary">Submit availability</button>
+          </div>
+        </div>
+
+        <div style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--border);">
+          <span style="font-size:11px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:0.04em; margin-right:8px;">Mockup preview:</span>
+          <button class="preview-toggle on" id="btn-hotel-confirmed" onclick="showHotelState('confirmed')">Confirmed</button>
+          <button class="preview-toggle" id="btn-hotel-awaiting" onclick="showHotelState('awaiting')">Awaiting your dates</button>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h2>Dietary preference</h2>
+        <p class="hint">Applies immediately — no review needed.</p>
+        <div class="field-row">
+          <div class="field">
+            <label>Preference</label>
+            <select>
+              <option>No restrictions</option>
+              <option>Vegetarian</option>
+              <option>Vegan</option>
+              <option>Gluten-free</option>
+              <option selected>Severe allergy — see notes</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Allergy detail</label>
+            <input value="Peanut, tree nut — carries EpiPen" />
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h2>Flight information</h2>
+        <p class="hint">Most employee travel is booked directly by our team and shown here read-only. As an external guest, you're managing your own — changes go to the organizer for review before your itinerary updates.</p>
+        <div class="field-row">
+          <div class="field"><label>Arrival flight</label><input value="DL 1188 · Jan 18, 9:40p" /></div>
+          <div class="field"><label>Departure flight</label><input value="DL 1204 · Jan 22, 4:15p" /></div>
+        </div>
+        <div class="approval-note">⏳ Your arrival change is pending organizer approval. Your printed itinerary still shows the original time until it's confirmed.</div>
+      </div>
+
+      <div class="form-section">
+        <h2>Sub-events</h2>
+        <p class="hint">Toggle on for optional sessions — the keynote and fireside chat are included automatically.</p>
+        <div class="subevent-choice">
+          <div class="info"><strong>Opening Keynote</strong><span>Jan 19 · 9:00a–11:00a · included for all attendees</span></div>
+          <span class="locked-pill">Included</span>
+        </div>
+        <div class="subevent-choice">
+          <div class="info"><strong>Fireside Chat: Kevin O'Leary</strong><span>Jan 21 · 7:00p–8:30p · included for all attendees</span></div>
+          <span class="locked-pill">Included</span>
+        </div>
+        <div class="subevent-choice">
+          <div class="info"><strong>Golf Outing — Wed AM</strong><span>Jan 20 · 7:30a–12:00p · 16 spots left</span></div>
+          <button class="toggle on"></button>
+        </div>
+        <div class="subevent-choice">
+          <div class="info"><strong>Distillery Tour</strong><span>Jan 20 · 1:00p–4:30p · 2 spots left</span></div>
+          <button class="toggle"></button>
+        </div>
+      </div>
+
+      <div class="submit-row">
+        <button class="btn ghost">Save draft</button>
+        <button class="btn primary">Submit changes</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="mock-footer">
+  EventDesk — design preview for planning purposes. Data shown is fictional; this page is not wired to the live app.
+</footer>
+
+<script>
+  const tabs = document.querySelectorAll('nav.tabs button');
+  const views = { dashboard: document.getElementById('view-dashboard'), guest: document.getElementById('view-guest') };
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabs.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      Object.values(views).forEach(v => v.classList.remove('active'));
+      views[btn.dataset.view].classList.add('active');
+    });
+  });
+  document.querySelectorAll('.toggle').forEach(t => {
+    t.addEventListener('click', () => t.classList.toggle('on'));
+  });
+  function showHotelState(state) {
+    document.getElementById('hotel-confirmed-state').style.display = state === 'confirmed' ? '' : 'none';
+    document.getElementById('hotel-awaiting-state').style.display = state === 'awaiting' ? '' : 'none';
+    document.getElementById('btn-hotel-confirmed').classList.toggle('on', state === 'confirmed');
+    document.getElementById('btn-hotel-awaiting').classList.toggle('on', state === 'awaiting');
+  }
+  document.querySelectorAll('.filter-chip').forEach(c => {
+    c.addEventListener('click', () => {
+      document.querySelectorAll('.filter-chip').forEach(x => x.classList.remove('on'));
+      c.classList.add('on');
+    });
+  });
+  document.querySelectorAll('.change-row').forEach(row => {
+    row.querySelectorAll('.btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        row.style.transition = 'opacity 0.2s ease';
+        row.style.opacity = '0.35';
+        row.querySelectorAll('.btn').forEach(b => b.disabled = true);
+      });
+    });
+  });
+</script>
+</body>
+</html>
