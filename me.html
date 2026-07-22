@@ -43,7 +43,7 @@
     <div id="hotel-section"></div>
   </div>
 
-  <div class="card">
+  <div class="card" id="flight-card">
     <h2>Flight information</h2>
     <div id="flight-section"></div>
   </div>
@@ -102,6 +102,11 @@
       const event = await res.json();
       applyBranding(event.branding);
       eventDates = { startDate: event.startDate, endDate: event.endDate };
+      // ADR 0033 — the org can turn flight tracking off entirely; default
+      // true so older cached responses (or a failed fetch) keep the
+      // section visible rather than silently hiding a real feature.
+      document.getElementById("flight-card").style.display =
+        event.flightTrackingEnabled === false ? "none" : "";
       if (currentAttendee) renderHotel(currentAttendee);
     } catch (err) {
       // Branding/dates are cosmetic — a failed fetch here shouldn't block the page.
